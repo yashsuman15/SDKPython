@@ -21,4 +21,4 @@ A Python client for interacting with the Labellerr API.
 # Installation
 
 You can install the package using pip:
-!pip install https://github.com/tensormatics/SDKPython/releases/download/v1/labellerr_sdk-0.1.0.tar.gz
+- !pip install https://github.com/tensormatics/SDKPython/releases/download/v1/labellerr_sdk-0.1.0.tar.gz
