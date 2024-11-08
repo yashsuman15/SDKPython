@@ -3,7 +3,7 @@ from labellerr.client import LabellerrClient
 from labellerr.exceptions import LabellerrError
 import json
 import uuid
-
+# python -m unittest discover -s tests
 class TestLabellerrClient(unittest.TestCase):
     def setUp(self):
         # self.client = LabellerrClient('f483bd.53bac54d36b8382a176138d46c', 'c9d7255834ca6b67f55a6c5f60121d4fe7e47851c022bc0237fecda541ab0eae') #--dev
@@ -39,19 +39,48 @@ class TestLabellerrClient(unittest.TestCase):
             )
 
             # verify that the result pattern is like this: {'project_id': 'veronike_loose_raven_39117','response': 'success'}
-            self.assertTrue(isinstance(result, dict) and len(result) == 2 and 'project_id' in result and 'response' in result)
+            self.assertTrue(isinstance(result, dict) and len(result) == 3 and 'project_id' in result and 'response' in result)
             self.assertEqual(result['response'], 'success')
 
+            # verify that the project_id is not empty
+            self.assertTrue(result['project_id'])
 
             # Log the return value
-            print(f"Project ID: {result['project_id']}")
+            print(f"Project create api response: {result}")
 
             
         except LabellerrError as e:
             print(f"An error occurred: {e}")
             raise  # Re-raise the exception to fail the test
 
+    def test_create_dataset(self):
+
+        payload={
+                "client_id":1,
+                "dataset_name": 'Sample',
+                "dataset_description": 'sample description',
+                "data_type": "image",
+                "created_by":'angansen@gmail.com',
+                "permission_level": "project",
+                "type": "client",
+                "labelled": "unlabelled",
+                "data_copy": "false",
+                "isGoldDataset": False,
+                "files_count": 0,
+                "access": "write"
+            }
+        
+        try:
+            result = self.client.create_dataset(payload)
+            self.assertEqual(result['response'], 'success')
+
+            # Log the return value
+            print(f"Dataset create api response: {result}")
+
+        except LabellerrError as e:
+            print(f"An error occurred: {e}")
+            raise
+
 if __name__ == '__main__':
     unittest.main()
 
-# python -m unittest discover -s tests
