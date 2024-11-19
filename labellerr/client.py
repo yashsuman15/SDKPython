@@ -523,6 +523,16 @@ class LabellerrClient:
 
     def upload_files(self,client_id,dataset_id,data_type,files_list):
 
+        """
+        Uploads files to the API.
+
+        :param client_id: The ID of the client.
+        :param dataset_id: The ID of the dataset.
+        :param data_type: The type of data.
+        :param files_list: The list of files to upload.
+        :return: The response from the API.
+        :raises LabellerrError: If the upload fails.
+        """
         try:
             # convert commaseparated string to list from files_list
             files_list = files_list.split(',')
@@ -549,6 +559,17 @@ class LabellerrClient:
 
     def upload_folder_content(self,client_id,dataset_id,data_type,folder_path):
 
+        """
+        Uploads the content of a folder to the API.
+
+        :param client_id: The ID of the client.
+        :param dataset_id: The ID of the dataset.
+        :param data_type: The type of data.
+        :param folder_path: The path to the folder.
+        :return: The response from the API.
+        :raises LabellerrError: If the upload fails.
+        """
+        
         try:
             if not os.path.exists(folder_path) or not os.path.isdir(folder_path) or not os.listdir(folder_path):
                 raise LabellerrError("Invalid or empty folder path")
@@ -574,6 +595,13 @@ class LabellerrClient:
 
     def get_all_project_per_client_id(self,client_id):
 
+        """
+        Retrieves a list of projects associated with a client ID.
+
+        :param client_id: The ID of the client.
+        :return: A dictionary containing the list of projects.
+        :raises LabellerrError: If the retrieval fails.
+        """
         try:
             unique_id = str(uuid.uuid4())
             url = f"{self.base_url}/project_drafts/projects/detailed_list?client_id={client_id}&uuid={unique_id}"
@@ -598,6 +626,15 @@ class LabellerrClient:
     
                         
     def link_dataset_to_project(self, client_id,project_id,dataset_id):
+        """
+        Links a dataset to a project.
+
+        :param client_id: The ID of the client.
+        :param project_id: The ID of the project.
+        :param dataset_id: The ID of the dataset.
+        :return: The response from the API.
+        :raises LabellerrError: If the linking fails.
+        """
         try:
             unique_id = str(uuid.uuid4())
             url = f"{self.base_url}/datasets/project/link?client_id={client_id}&dataset_id={dataset_id}&project_id={project_id}&uuid={unique_id}"
@@ -622,6 +659,12 @@ class LabellerrClient:
         
 
     def validate_rotation_config(self,rotation_config):
+        """
+        Validates a rotation configuration.
+
+        :param rotation_config: A dictionary containing the configuration for the rotations.
+        :raises LabellerrError: If the configuration is invalid.
+        """
         annotation_rotation_count = rotation_config.get('annotation_rotation_count')
         review_rotation_count = rotation_config.get('review_rotation_count')
         client_review_rotation_count = rotation_config.get('client_review_rotation_count')
@@ -643,6 +686,13 @@ class LabellerrClient:
     def initiate_create_project(self,payload):
 
         # Creating an empty dataset by function call
+        """
+        Creates an empty project.
+
+        :param payload: A dictionary containing the configuration for the project.
+        :return: A dictionary containing the dataset ID, project ID, and project configuration.
+        """
+        
         try:
             result={}
             print('Payload  >>> ',payload)
