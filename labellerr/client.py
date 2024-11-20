@@ -11,7 +11,7 @@ import logging
 from datetime import datetime 
 import os
 
-FILE_BATCH_SIZE=2 * 1024 * 1024
+FILE_BATCH_SIZE=20 * 1024 * 1024
 TOTAL_FILES_SIZE_LIMIT_PER_DATASET=2.5*1024*1024*1024
 TOTAL_FILES_COUNT_LIMIT_PER_DATASET=2500
 
@@ -20,8 +20,8 @@ DATA_TYPES=('image', 'video', 'audio', 'document', 'text')
 DATA_TYPE_FILE_EXT = {
     'image': ['.jpg','.jpeg', '.png', '.bmp', '.tiff'],
     'video': ['.mp4'],
-    'audio': ['.mp3', '.wav', '.ogg', '.flac', '.aac'],
-    'document': ['.doc', '.docx', '.pdf', '.txt', '.rtf'],
+    'audio': ['.mp3', '.wav'],
+    'document': ['.pdf'],
     'text': ['.txt']
 }
 # python -m unittest discover -s tests
@@ -106,8 +106,8 @@ class LabellerrClient:
             if rotation_config is None:
                 rotation_config = {
                     'annotation_rotation_count':1,
-                    'review_rotation_count':0,
-                    'client_review_rotation_count':0
+                    'review_rotation_count':1,
+                    'client_review_rotation_count':1
                 }
 
             self.rotation_config=rotation_config
@@ -344,13 +344,13 @@ class LabellerrClient:
 
                             with open(file_path, 'rb') as file_obj:
                                 files_list.append(
-                                    ('file', (filename, file_obj.read(), 'image/jpeg'))
+                                    ('file', (filename, file_obj.read(), 'application/octet-stream'))
                             )
                         else:
 
                             with open(file_path, 'rb') as file_obj:
                                 files_list.append(
-                                    ('file', (filename, file_obj.read(), 'image/jpeg'))
+                                    ('file', (filename, file_obj.read(), 'application/octet-stream'))
                             )                            
                             print(f"Upload {len(files_list)} file(s) batch size {total_file_size/1024/1024:.1f}MB exceeds {FILE_BATCH_SIZE/1024/1024:.1f}MB")
 
@@ -409,9 +409,16 @@ class LabellerrClient:
             filenames=data_config['files_list']
             total_file_count, total_file_volumn, filenames=self.get_total_file_count_and_total_size(filenames,data_config['data_type'])
             
+            if total_file_count>TOTAL_FILES_COUNT_LIMIT_PER_DATASET or total_file_volumn>TOTAL_FILES_SIZE_LIMIT_PER_DATASET:
+                if total_file_count>TOTAL_FILES_COUNT_LIMIT_PER_DATASET:
+                    raise LabellerrError(f"Total file count: {total_file_count} where limit is {TOTAL_FILES_COUNT_LIMIT_PER_DATASET} is too many file to upload")
+                if total_file_volumn>TOTAL_FILES_SIZE_LIMIT_PER_DATASET:
+                    raise LabellerrError(f"Total file size: {total_file_volumn/1024/1024:.1f}MB where the limit is {TOTAL_FILES_SIZE_LIMIT_PER_DATASET/1024/1024:.1f}MB is too large to upload")
 
-            print(f"Total file count: {total_file_count}")
-            print(f"Total file size: {total_file_volumn/1024/1024:.1f} MB")
+            else:
+                print(f"Total file count: {total_file_count}")
+                print(f"Total file size: {total_file_volumn/1024/1024:.1f} MB")
+
 
 
             total_file_size=0
@@ -422,6 +429,7 @@ class LabellerrClient:
                 print('Reading file path...', file_path)
                 upload_queue.append(file_path)
                 print(f"cumulative file size {total_file_size} out of {FILE_BATCH_SIZE}")
+                print('Upload Queue',upload_queue)
                 try:
                     total_file_size += os.path.getsize(file_path)
                     if total_file_size < FILE_BATCH_SIZE:
@@ -455,12 +463,11 @@ class LabellerrClient:
                     fail_queue.extend(upload_queue)
                     upload_queue = []
                     continue
-                finally:
-                    upload_queue = []
                 
         
             if files_list and len(files_list)>0:
                 try:
+                    print('before upload ',upload_queue)
                     response=self.commence_files_upload(data_config,files_list)
                     success_queue.extend(upload_queue)
                 except Exception as e:
