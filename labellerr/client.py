@@ -663,7 +663,43 @@ class LabellerrClient:
         except Exception as e:
             logging.error(f"Failed to link the data with the projects :{str(e)}")
             raise LabellerrError(f"Failed to link the data with the projects : {str(e)}")
+    
+
+
+
+    def update_project_annotation_guideline(self,config):
+
+        """
+        Updates the annotation guideline for a project.
+
+        :param config: A dictionary containing the project ID, data type, client ID, autolabel status, and the annotation guideline.
+        :return: None
+        :raises LabellerrError: If the update fails.
+        """
+        unique_id = str(uuid.uuid4())
+
+        url = f"{self.base_url}/annotations/add_questions?project_id={config['project_id']}&auto_label={config['autolabel']}&data_type={config['data_type']}&client_id={config['client_id']}&uuid={unique_id}"
+
+        guide_payload = json.dumps(config['annotation_guideline'])
         
+        headers = {
+            'client_id': str(config['client_id']),
+            'content-type': 'application/json',
+            'api_key': self.api_key,
+            'api_secret': self.api_secret,
+            'origin': 'https://dev.labellerr.com'
+        }    
+
+        print('annotation_guide -- ', guide_payload)
+        try:
+            response = requests.request("POST", url, headers=headers, data=guide_payload)
+            print(' guideline update  ',response)
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Failed to update project annotation guideline: {str(e)}")
+            raise LabellerrError(f"Failed to update project annotation guideline: {str(e)}")
+        
+
 
     def validate_rotation_config(self,rotation_config):
         """
@@ -770,6 +806,24 @@ class LabellerrClient:
             project_id = response['project_id']
             result['project_id'] = project_id
             result['project_config'] = response['project_config']   
+
+            # update the project annotation guideline 
+            if 'annotation_guide' in payload:
+                try:
+                    guideline={
+                        "project_id":project_id,
+                        "client_id":payload['client_id'],
+                        "autolabel":payload['autolabel'],
+                        "data_type": payload['data_type'],
+                        "annotation_guideline":payload['annotation_guide']
+                    }
+                    guideline_update=self.update_project_annotation_guideline(guideline)
+                    result['annotation_guide']=guideline_update['response']
+                except Exception as e:
+                    logging.error(f"Failed to update project annotation guideline: {str(e)}")
+                    print(result)
+                    raise LabellerrError(f"Failed to update project annotation guideline: {str(e)}")
+
 
             # link dataset to project
             data=self.link_dataset_to_project(payload['client_id'],project_id,dataset_id)

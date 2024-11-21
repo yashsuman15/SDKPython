@@ -84,11 +84,27 @@ class TestLabellerrClient(unittest.TestCase):
                 "data_type": "image",
                 "created_by":'angansen@gmail.com',
                 "dataset_description": 'sample description',
+                "autolabel":"false",
                 # -----    Local Folder upload to dataset object   --------
                 # "folder_to_upload": '/Users/angansen/Documents/labelerr/test_image/male',
                 "files_to_upload":['/Users/angansen/Documents/labelerr/test_image/female/6890.jpg', '/Users/angansen/Documents/labelerr/test_image/female/6898.jpg', '/Users/angansen/Documents/labelerr/test_image/female/7416.jpg'],
                 # ------ create empty project object   --------
                 "project_name":'Test Project2',
+                # "annotation_guide":[
+                #                         {
+                #                             "question_number": 1,
+                #                             "question": "Test4",
+                #                             "required": 'false',
+                #                             "options": [
+                #                                 {
+                #                                     "option_name": "#4682B4"
+                #                                 }
+                #                             ],
+                #                             "question_id": "533bb0c8-fb2b-4394-a8e1-5042a944802f",
+                #                             "option_type": "BoundingBox",
+                #                             "question_metadata": []
+                #                         }
+                #                     ],
                 "rotation_config":{
                     'annotation_rotation_count': 0,
                     'review_rotation_count': 1,
