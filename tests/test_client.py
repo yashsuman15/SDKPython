@@ -86,25 +86,25 @@ class TestLabellerrClient(unittest.TestCase):
                 "dataset_description": 'sample description',
                 "autolabel":"false",
                 # -----    Local Folder upload to dataset object   --------
-                # "folder_to_upload": '/Users/angansen/Documents/labelerr/test_image/male',
-                "files_to_upload":['/Users/angansen/Documents/labelerr/test_image/female/6890.jpg', '/Users/angansen/Documents/labelerr/test_image/female/6898.jpg', '/Users/angansen/Documents/labelerr/test_image/female/7416.jpg'],
+                "folder_to_upload": '/Users/angansen/Documents/labelerr/test_image/male',
+                # "files_to_upload":['/Users/angansen/Documents/labelerr/test_image/female/6890.jpg', '/Users/angansen/Documents/labelerr/test_image/female/6898.jpg', '/Users/angansen/Documents/labelerr/test_image/female/7416.jpg'],
                 # ------ create empty project object   --------
                 "project_name":'Test Project2',
-                # "annotation_guide":[
-                #                         {
-                #                             "question_number": 1,
-                #                             "question": "Test4",
-                #                             "required": 'false',
-                #                             "options": [
-                #                                 {
-                #                                     "option_name": "#4682B4"
-                #                                 }
-                #                             ],
-                #                             "question_id": "533bb0c8-fb2b-4394-a8e1-5042a944802f",
-                #                             "option_type": "BoundingBox",
-                #                             "question_metadata": []
-                #                         }
-                #                     ],
+                "annotation_guide":[
+                                        {
+                                            "question_number": 1,
+                                            "question": "Test4",
+                                            "required": 'false',
+                                            "options": [
+                                                {
+                                                    "option_name": "#4682B4"
+                                                }
+                                            ],
+                                            "question_id": "533bb0c8-fb2b-4394-a8e1-5042a944802f",
+                                            "option_type": "BoundingBox",
+                                            "question_metadata": []
+                                        }
+                                    ],
                 "rotation_config":{
                     'annotation_rotation_count': 0,
                     'review_rotation_count': 1,
@@ -123,6 +123,58 @@ class TestLabellerrClient(unittest.TestCase):
             print(f"An error occurred: {e}")
             raise
 
+
+
+    # upload pre annotation file
+    def test_preannotation_file_by_project_id(self):
+            """
+            Test uploading multiple files from a folder to a dataset.
+            /Users/angansen/Documents/labelerr/test_data
+            """
+            # Test configuration
+            annotation_file = '/Users/angansen/Documents/labelerr/test_data/preannotation.json'  # Create this folder and add some test images
+            client_id = '1'
+            project_id='tabby_straightforward_tapir_38354'
+            annotation_format='coco'
+            result=self.client.upload_preannotation_by_project_id(project_id,client_id,annotation_format,annotation_file)
+
+            # result should not have error
+            self.assertTrue('error' not in result)
+        
+            # Log the validation result
+            print("Validation of folder upload dataset result: SUCCESS", result)
+
+
+
+
+    def test_local_export(self):
+            """
+            Test uploading multiple files from a folder to a dataset.
+            /Users/angansen/Documents/labelerr/test_data
+            """
+            # Test configuration
+            client_id = '1210'
+            project_id='tabby_straightforward_tapir_38354'
+            export_config={
+            "export_name": "Test",
+            "export_description": "Test export",
+            "export_format": "json",
+            "export_destination": "local",
+            "question_ids": [
+                "all"
+            ],
+            "statuses": [
+                "accepted",
+                "rejected"
+            ]
+            }
+            result=self.client.create_local_export(project_id,client_id,export_config)
+
+            # result should not have error
+            self.assertTrue('err' not in result)
+        
+            # Log the validation result
+            print("Validation of folder upload dataset result: SUCCESS", result)
 
 
 

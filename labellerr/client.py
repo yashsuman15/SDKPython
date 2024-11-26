@@ -14,6 +14,7 @@ import os
 FILE_BATCH_SIZE=20 * 1024 * 1024
 TOTAL_FILES_SIZE_LIMIT_PER_DATASET=2.5*1024*1024*1024
 TOTAL_FILES_COUNT_LIMIT_PER_DATASET=2500
+ANNOTATION_FORMAT=['json', 'coco_json', 'csv', 'png']
 
 ## DATA TYPES: image, video, audio, document, text
 DATA_TYPES=('image', 'video', 'audio', 'document', 'text')
@@ -724,7 +725,89 @@ class LabellerrClient:
         elif annotation_rotation_count > 1 and client_review_rotation_count != 0:
             raise LabellerrError("client_review_rotation_count must be 0 when annotation_rotation_count is greater than 1")
 
-    
+
+    def upload_preannotation_by_project_id(self,project_id,client_id,annotation_format,annotation_file):
+
+        """
+        Uploads preannotation data to a project.
+
+        :param project_id: The ID of the project.
+        :param client_id: The ID of the client.
+        :param annotation_format: The format of the preannotation data.
+        :param annotation_file: The file path of the preannotation data.
+        :return: The response from the API.
+        :raises LabellerrError: If the upload fails.
+        """
+        try:
+            # validate all the parameters
+            required_params = ['project_id', 'client_id', 'annotation_format', 'annotation_file']
+            for param in required_params:
+                if param not in locals():
+                    raise LabellerrError(f"Required parameter {param} is missing")
+                
+            if annotation_format not in ANNOTATION_FORMAT:
+                raise LabellerrError(f"Invalid annotation_format. Must be one of {ANNOTATION_FORMAT}")
+            
+
+            url = f"{self.base_url}/actions/upload_answers?project_id={project_id}&answer_format={annotation_format}&client_id={client_id}"
+
+            # validate if the file exist then extract file name from the path
+            if os.path.exists(annotation_file):
+                file_name = os.path.basename(annotation_file)
+            else:
+                raise LabellerrError("File not found")
+
+            payload = {}
+            # with open(annotation_file, 'rb') as f:
+            #     files = [('file', (file_name, f, 'application/json'))]
+            files=[
+                ('file',(file_name,open(annotation_file,'rb'),'application/octet-stream'))
+                ]
+
+            headers = {
+            'client_id': client_id,
+            'api_key': self.api_key,
+            'api_secret': self.api_secret,
+            'origin': 'https://dev.labellerr.com',
+            'email_id': self.api_key
+            }
+
+            response = requests.request("POST", url, headers=headers, data=payload, files=files)
+
+            print(response.text)
+            if response.status_code != 200:
+                raise LabellerrError(f"Failed to upload preannotation: {response.text}")
+            
+            return response.json()
+        except Exception as e:
+            logging.error(f"Failed to upload preannotation: {str(e)}")
+            raise LabellerrError(f"Failed to upload preannotation: {str(e)}")
+
+
+    def create_local_export(self,project_id,client_id,export_config):
+
+        required_params = ['project_id', 'client_id', 'export_config']
+        for param in required_params:
+            if param not in locals():
+                raise LabellerrError(f"Required parameter {param} is missing")
+
+        
+
+        url=f"{self.base_url}/sdk_python/export/files?project_id={project_id}&client_id={client_id}"
+        payload = json.dumps(export_config)
+        headers = {
+        'api_key': 'f08d49.85f21d405680fd3460ffa2bdc9',
+        'api_secret': 'c8ddb6d24bc07242543d56e688edf57efcf98a01387fcc4a7c46441a9ac198d6',
+        'Origin': 'https://dev.labellerr.com',
+        'Content-Type': 'application/json'
+        }
+
+        try:
+            response = requests.request("POST", url, headers=headers, data=payload)
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Failed to create local export: {str(e)}")
+            raise LabellerrError(f"Failed to create local export: {str(e)}")
 
     def initiate_create_project(self,payload):
 
@@ -741,7 +824,7 @@ class LabellerrClient:
             print('Payload  >>> ',payload)
 
             # validate all the parameters
-            required_params = ['client_id', 'dataset_name', 'dataset_description', 'data_type', 'created_by', 'project_name']
+            required_params = ['client_id', 'dataset_name', 'dataset_description', 'data_type', 'created_by', 'project_name','annotation_guide','autolabel']
             for param in required_params:
                 if param not in payload:
                     raise LabellerrError(f"Required parameter {param} is missing")
@@ -767,7 +850,7 @@ class LabellerrClient:
                 elif 'folder_to_upload' in payload:
                     if not isinstance(payload['folder_to_upload'], str) or not payload['folder_to_upload'].strip():
                         raise LabellerrError("folder_to_upload must be a non-empty string.")
-            
+                
 
             response = self.create_dataset({
                 'client_id': payload['client_id'],
@@ -808,22 +891,22 @@ class LabellerrClient:
             result['project_config'] = response['project_config']   
 
             # update the project annotation guideline 
-            if 'annotation_guide' in payload:
-                try:
-                    guideline={
-                        "project_id":project_id,
-                        "client_id":payload['client_id'],
-                        "autolabel":payload['autolabel'],
-                        "data_type": payload['data_type'],
-                        "annotation_guideline":payload['annotation_guide']
-                    }
-                    guideline_update=self.update_project_annotation_guideline(guideline)
-                    result['annotation_guide']=guideline_update['response']
-                except Exception as e:
-                    logging.error(f"Failed to update project annotation guideline: {str(e)}")
-                    print(result)
-                    raise LabellerrError(f"Failed to update project annotation guideline: {str(e)}")
-
+            # if 'annotation_guide' in payload and 'autolabel' in payload:
+            try:
+                guideline={
+                    "project_id":project_id,
+                    "client_id":payload['client_id'],
+                    "autolabel":payload['autolabel'],
+                    "data_type": payload['data_type'],
+                    "annotation_guideline":payload['annotation_guide']
+                }
+                guideline_update=self.update_project_annotation_guideline(guideline)
+                result['annotation_guide']=guideline_update['response']
+            except Exception as e:
+                logging.error(f"Failed to update project annotation guideline: {str(e)}")
+                print(result)
+                raise LabellerrError(f"Failed to update project annotation guideline: {str(e)}")
+        
 
             # link dataset to project
             data=self.link_dataset_to_project(payload['client_id'],project_id,dataset_id)
