@@ -103,7 +103,7 @@ class LabellerrClient:
 
             if response.status_code != 200:
                 raise LabellerrError(f"Project creation failed: {response.status_code} - {response.text}")
-            
+            print("rotation_config - - > ",rotation_config)
             if rotation_config is None:
                 rotation_config = {
                     'annotation_rotation_count':1,
@@ -202,13 +202,14 @@ class LabellerrClient:
             )
 
             response = requests.request("POST", url, headers=headers, data=payload)
-
+            
             if response.status_code != 200:
-                raise LabellerrError(f"dataset creation failed: {response.status_code} - {response.text}")
+                raise LabellerrError(f"dataset creation failed: {response.status_code} - {response.text}, request track id, {unique_id}")
 
-            return {'response': 'success','dataset_id':dataset_id}
+            return {'response': 'success','dataset_id':dataset_id,'track_id':unique_id}
 
         except LabellerrError as e:
+            e['track_id']=unique_id
             logging.error(f"Failed to create dataset: {e}")
             raise
 
@@ -382,6 +383,7 @@ class LabellerrClient:
                         fail_queue.append(upload_queue)
                     
             return {
+                'track_id':unique_id,
                 'success':success_queue,
                 'fail':fail_queue
             }
@@ -479,6 +481,7 @@ class LabellerrClient:
                     upload_queue = []
                     
             return {
+                'track_id':unique_id,
                 'success':success_queue,
                 'fail':fail_queue
             }
@@ -658,9 +661,10 @@ class LabellerrClient:
             }            
 
             response = requests.request("GET", url, headers=headers, data=payload)
-
-            print(response.text)
-            return response.json()
+            response=response.json()
+            response['track_id'] = unique_id
+            print(response)
+            return response
         except Exception as e:
             logging.error(f"Failed to link the data with the projects :{str(e)}")
             raise LabellerrError(f"Failed to link the data with the projects : {str(e)}")
@@ -700,7 +704,7 @@ class LabellerrClient:
             logging.error(f"Failed to update project annotation guideline: {str(e)}")
             raise LabellerrError(f"Failed to update project annotation guideline: {str(e)}")
         
-
+    
 
     def validate_rotation_config(self,rotation_config):
         """
@@ -834,7 +838,14 @@ class LabellerrClient:
                         raise LabellerrError(f"client_id must be a string")
                 
         
-            self.validate_rotation_config(payload['rotation_config'])
+            if 'rotation_config' in payload:
+                self.validate_rotation_config(payload['rotation_config'])
+            else:
+                payload['rotation_config'] = {
+                    'annotation_rotation_count':1,
+                    'review_rotation_count':1,
+                    'client_review_rotation_count':1
+                }
             
             if payload['data_type'] not in DATA_TYPES:
                 raise LabellerrError(f"Invalid data_type. Must be one of {DATA_TYPES}")
@@ -901,7 +912,7 @@ class LabellerrClient:
                     "annotation_guideline":payload['annotation_guide']
                 }
                 guideline_update=self.update_project_annotation_guideline(guideline)
-                result['annotation_guide']=guideline_update['response']
+                result['annotation_guide']=guideline_update
             except Exception as e:
                 logging.error(f"Failed to update project annotation guideline: {str(e)}")
                 print(result)
