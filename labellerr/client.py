@@ -80,7 +80,7 @@ class LabellerrClient:
         """
         try:
             unique_id = str(uuid.uuid4())
-            url = f"{self.base_url}/projects/create?stage=0&client_id={client_id}&uuid={unique_id}"
+            url = f"{self.base_url}/projects/create?stage=1&client_id={client_id}&uuid={unique_id}"
 
             project_id = get_random_name(combo=[NAMES, ADJECTIVES, ANIMALS], separator="_", style="lowercase") + '_' + str(random.randint(10000, 99999))
 
