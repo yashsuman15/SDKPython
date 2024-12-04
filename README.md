@@ -1,192 +1,180 @@
-Certainly! Here's a more focused documentation for the Labellerr SDK, covering the three main functionalities you've specified:
+# Labellerr SDK Documentation: Simplified Guide  
 
-# Labellerr SDK Documentation
+## Table of Contents  
 
-## Table of Contents
-1. [Introduction](#introduction)
-2. [Installation](#installation)
-3. [Getting Started](#getting-started)
-4. [Core Functionalities](#core-functionalities)
-   - [Initiating Project Creation](#initiating-project-creation)
-   - [Uploading Pre-annotations](#uploading-pre-annotations)
-   - [Creating Local Exports](#creating-local-exports)
-5. [Error Handling](#error-handling)
-6. [Support](#support)
+1. [What is the Labellerr SDK?](#what-is-the-labellerr-sdk)  
+2. [How to Install](#how-to-install)  
+3. [Getting Started](#getting-started)  
+4. [Key Features](#key-features)  
+   - [Creating a New Project](#creating-a-new-project)  
+   - [Uploading Annotations](#uploading-annotations)  
+   - [Exporting Project Data](#exporting-project-data)  
+5. [Dealing with Errors](#dealing-with-errors)  
+6. [Where to Get Help](#where-to-get-help)  
 
-## Introduction
+---
 
-The Labellerr SDK is a Python library that simplifies interaction with the Labellerr platform. This documentation focuses on three key functionalities: project creation, pre-annotation upload, and local export creation.
+## What is the Labellerr SDK?  
 
-## Installation
+The **Labellerr SDK** is a toolkit for Python that helps you work with the Labellerr platform easily. Whether you need to start a new project, upload annotations, or download data, this SDK simplifies the process for you.  
 
-Install the Labellerr SDK using pip:
+---
 
-```bash
-pip install https://github.com/tensormatics/SDKPython/releases/download/v1/labellerr_sdk-1.0.0.tar.gz
-```
+## How to Install  
 
-## Getting Started
+To set up the Labellerr SDK, just open your terminal and run:  
 
-To use the Labellerr SDK, first import and initialize the `LabellerrClient`:
+```bash  
+pip install https://github.com/tensormatics/SDKPython/releases/download/v1/labellerr_sdk-1.0.0.tar.gz  
+```  
 
-```python
-from labellerr.client import LabellerrClient
+This will install everything you need to use the SDK in your Python programs.  
 
-# Initialize the client with your API credentials
-client = LabellerrClient('your_api_key', 'your_api_secret')
-```
+---
 
-## Core Functionalities
+## Getting Started  
 
-### Initiating Project Creation
+To start using the SDK:  
 
-Create a new project with specified configurations.
+1. **Import the SDK**  
+   Add the following line to your Python script:  
 
-```python
-def initiate_create_project(self, payload):
-    """
-    Initiates the creation of a new project.
+   ```python  
+   from labellerr.client import LabellerrClient  
+   ```  
 
-    Args:
-        payload (dict): A dictionary containing project configuration details.
+2. **Log In with Your API Keys**  
+   Replace `'your_api_key'` and `'your_api_secret'` with your actual credentials:  
 
-    Returns:
-        dict: A dictionary containing the project creation response.
+   ```python  
+   client = LabellerrClient('your_api_key', 'your_api_secret')  
+   ```  
 
-    Raises:
-        LabellerrError: If project creation fails.
-    """
-```
+This sets up your connection to the Labellerr platform, making the SDK ready to use.  
 
-Example usage:
+---
 
-```python
-project_payload = {
-    'client_id': '12345',
-    'dataset_name': 'Sample Dataset',
-    'dataset_description': 'A sample dataset for image classification',
-    'data_type': 'image',
-    'created_by': 'user@example.com',
-    'project_name': 'Image Classification Project',
-    'annotation_guide': [
-        {
-            "question_number": 1,
-            "question": "What is the main object in the image?",
-            "required": True,
-            "options": [
-                {"option_name": "Car"},
-                {"option_name": "Building"},
-                {"option_name": "Person"}
-            ],
-            "option_type": "SingleSelect"
-        }
-    ],
-    'autolabel': False,
-    'folder_to_upload': '/path/to/image/folder'
-}
+## Key Features  
 
-try:
-    result = client.initiate_create_project(project_payload)
-    print(f"Project created successfully. Project ID: {result['project_id']}")
-except LabellerrError as e:
-    print(f"Project creation failed: {str(e)}")
-```
+### Creating a New Project  
 
-### Uploading Pre-annotations
+When you want to start a new project on Labellerr, here’s what to do:  
 
-Upload pre-annotations for a specific project.
+1. **Prepare the Project Details**  
+   Describe your project using a dictionary. For example:  
 
-```python
-def upload_preannotation_by_project_id(self, project_id, client_id, annotation_format, annotation_file):
-    """
-    Uploads pre-annotations for a project.
+   ```python  
+   project_payload = {
+       'client_id': '12345',  
+       'dataset_name': 'Sample Dataset',  
+       'dataset_description': 'Dataset for image classification',  
+       'data_type': 'image',  
+       'created_by': 'user@example.com',  
+       'project_name': 'Image Classification Project',  
+       'annotation_guide': [  
+           {  
+               "question_number": 1,  
+               "question": "What is the main object in the image?",  
+               "options": [{"option_name": "Car"}, {"option_name": "Building"}],  
+               "option_type": "SingleSelect",  
+               "required": True  
+           }  
+       ],  
+       'folder_to_upload': '/path/to/images'  
+   }  
+   ```  
 
-    Args:
-        project_id (str): The ID of the project.
-        client_id (str): The ID of the client.
-        annotation_format (str): The format of the annotations (e.g., 'coco', 'yolo').
-        annotation_file (str): Path to the annotation file.
+2. **Create the Project**  
 
-    Returns:
-        dict: A dictionary containing the upload response.
+   ```python  
+   try:  
+       result = client.initiate_create_project(project_payload)  
+       print(f"Project created! Project ID: {result['project_id']}")  
+   except LabellerrError as e:  
+       print(f"Error creating project: {e}")  
+   ```  
 
-    Raises:
-        LabellerrError: If the upload fails.
-    """
-```
+This creates the project and provides you with a unique Project ID.  
 
-Example usage:
+---
 
-```python
-project_id = 'project_123'
-client_id = '12345'
-annotation_format = 'coco'
-annotation_file = '/path/to/annotations.json'
+### Uploading Annotations  
 
-try:
-    result = client.upload_preannotation_by_project_id(project_id, client_id, annotation_format, annotation_file)
-    print("Pre-annotations uploaded successfully")
-except LabellerrError as e:
-    print(f"Pre-annotation upload failed: {str(e)}")
-```
+If you have annotations ready, you can upload them directly to a project.  
 
-### Creating Local Exports
+1. **Get Your Annotation File Ready**  
+   Ensure your file follows the correct format (e.g., COCO, YOLO).  
 
-Create a local export of project data.
+2. **Upload the Annotations**  
 
-```python
-def create_local_export(self, project_id, client_id, export_config):
-    """
-    Creates a local export of project data.
+   ```python  
+   try:  
+       result = client.upload_preannotation_by_project_id(  
+           project_id='project_123',  
+           client_id='12345',  
+           annotation_format='coco',  
+           annotation_file='/path/to/annotations.json'  
+       )  
+       print("Annotations uploaded successfully!")  
+   except LabellerrError as e:  
+       print(f"Error uploading annotations: {e}")  
+   ```  
 
-    Args:
-        project_id (str): The ID of the project.
-        client_id (str): The ID of the client.
-        export_config (dict): Configuration for the export.
+This updates the project with your annotation data.  
 
-    Returns:
-        dict: A dictionary containing the export response.
+---
 
-    Raises:
-        LabellerrError: If the export creation fails.
-    """
-```
+### Exporting Project Data  
 
-Example usage:
+You can easily download project data to your local machine.  
 
-```python
-project_id = 'project_123'
-client_id = '12345'
-export_config = {
-    "export_name": "Weekly Export",
-    "export_description": "Export of all accepted annotations",
-    "export_format": "json",
-    "export_destination": "local",
-    "question_ids": ["all"],
-    "statuses": ["accepted"]
-}
+1. **Set Up the Export Details**  
 
-try:
-    result = client.create_local_export(project_id, client_id, export_config)
-    print(f"Local export created successfully. Export ID: {result['export_id']}")
-except LabellerrError as e:
-    print(f"Local export creation failed: {str(e)}")
-```
+   ```python  
+   export_config = {  
+       "export_name": "Weekly Export",  
+       "export_description": "Accepted annotations only",  
+       "export_format": "json",  
+       "export_destination": "local",  
+       "statuses": ["accepted"]  
+   }  
+   ```  
 
-## Error Handling
+2. **Download the Data**  
 
-The SDK uses custom `LabellerrError` exceptions. Always wrap your code in try-except blocks to handle these errors:
+   ```python  
+   try:  
+       result = client.create_local_export('project_123', '12345', export_config)  
+       print(f"Export successful! Export ID: {result['export_id']}")  
+   except LabellerrError as e:  
+       print(f"Error exporting data: {e}")  
+   ```  
 
-```python
-from labellerr.exceptions import LabellerrError
+---
 
-try:
-    # Your SDK function call here
-    result = client.some_function(args)
-except LabellerrError as e:
-    print(f"An error occurred: {str(e)}")
-```
+## Dealing with Errors  
 
-## Support
+Sometimes things don’t go as planned, but the SDK helps you identify what went wrong.  
 
-For additional support or to report issues, please contact our support team at support@labellerr.com or visit our documentation website at https://docs.labellerr.com.
+1. Wrap your code in a `try-except` block to catch errors:  
+
+   ```python  
+   from labellerr.exceptions import LabellerrError  
+
+   try:  
+       # Example function call  
+       result = client.some_function(args)  
+   except LabellerrError as e:  
+       print(f"An error occurred: {e}")  
+   ```  
+
+2. The SDK provides clear error messages to help you troubleshoot.  
+
+---
+
+## Where to Get Help  
+
+If you need assistance:  
+
+- **Email**: [support@labellerr.com](mailto:support@labellerr.com)  
+- **Documentation**: [Labellerr Docs](https://docs.labellerr.com)  

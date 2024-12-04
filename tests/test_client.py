@@ -75,88 +75,74 @@ class TestLabellerrClient(unittest.TestCase):
     #         raise
 
 
-    def test_initiate_project(self):
-        try:
-            payload={
-                # -----  Create empty dataset object   --------
-                "client_id":'1',
-                "dataset_name": 'Sample',
-                "data_type": "image",
-                "created_by":'angansen@gmail.com',
-                "dataset_description": 'sample description',
-                "autolabel":"false",
-                # -----    Local Folder upload to dataset object   --------
-                # "folder_to_upload": '/Users/angansen/Documents/labelerr/test_image/male',
-                "files_to_upload":['/Users/angansen/Documents/labelerr/test_image/female/6890.jpg', '/Users/angansen/Documents/labelerr/test_image/female/6898.jpg', '/Users/angansen/Documents/labelerr/test_image/female/7416.jpg'],
-                # ------ create empty project object   --------
-                "project_name":'Test Project2',
-                # "annotation_guide": [
-                #     {
-                #         "question_number": 1,
-                #         "question": "What is the main object in the image?",
-                #         "required": 'true',
-                #         "options": [
-                #             {"option_name": "Car"},
-                #             {"option_name": "Building"},
-                #             {"option_name": "Person"}
-                #         ],
-                #         "option_type": "SingleSelect"
-                #     }
-                # ],
+    # def test_initiate_project(self):
+    #     try:
+    #         payload={
+    #             # -----  Create empty dataset object   --------
+    #             "client_id":'1',
+    #             "dataset_name": 'Sample',
+    #             "data_type": "image",
+    #             "created_by":'angansen@gmail.com',
+    #             "dataset_description": 'sample description',
+    #             "autolabel":"false",
+    #             # -----    Local Folder upload to dataset object   --------
+    #             # "folder_to_upload": '/Users/angansen/Documents/labelerr/test_image/male',
+    #             "files_to_upload":['/Users/angansen/Documents/labelerr/test_image/female/6890.jpg', '/Users/angansen/Documents/labelerr/test_image/female/6898.jpg', '/Users/angansen/Documents/labelerr/test_image/female/7416.jpg'],
+    #             # ------ create empty project object   --------
+    #             "project_name":'Test Project2',
+    #             "annotation_guide":[
+    #                                     {
+    #                                         "question_number": 1,
+    #                                         "question": "Test4",
+    #                                         "required": 'false',
+    #                                         "options": [
+    #                                             {
+    #                                                 "option_name": "#4682B4"
+    #                                             }
+    #                                         ],
+    #                                         "question_id": "533bb0c8-fb2b-4394-a8e1-5042a944802f",
+    #                                         "option_type": "BoundingBox",
+    #                                         "question_metadata": []
+    #                                     }
+    #                                 ],
+    #             "rotation_config":{
+    #                 'annotation_rotation_count': 0,
+    #                 'review_rotation_count': 1,
+    #                 'client_review_rotation_count': 0
+    #             }
+    #         }
 
-                "annotation_guide":[
-                                        {
-                                            "question_number": 1,
-                                            "question": "Test4",
-                                            "required": 'false',
-                                            "options": [
-                                                {
-                                                    "option_name": "#4682B4"
-                                                }
-                                            ],
-                                            "question_id": "533bb0c8-fb2b-4394-a8e1-5042a944802f",
-                                            "option_type": "BoundingBox",
-                                            "question_metadata": []
-                                        }
-                                    ],
-                "rotation_config":{
-                    'annotation_rotation_count': 0,
-                    'review_rotation_count': 1,
-                    'client_review_rotation_count': 0
-                }
-            }
+    #         result = self.client.initiate_create_project(payload)
+    #         self.assertEqual(result['response'], 'success')
 
-            result = self.client.initiate_create_project(payload)
-            self.assertEqual(result['response'], 'success')
-
-            # Log the return value
-            print(f"Project initiate api response: {result}")
+    #         # Log the return value
+    #         print(f"Project initiate api response: {result}")
 
 
-        except LabellerrError as e:
-            print(f"An error occurred: {e}")
-            raise
+    #     except LabellerrError as e:
+    #         print(f"An error occurred: {e}")
+    #         raise
 
 
 
-    # # upload pre annotation file
-    # def test_preannotation_file_by_project_id(self):
-    #         """
-    #         Test uploading multiple files from a folder to a dataset.
-    #         /Users/angansen/Documents/labelerr/test_data
-    #         """
-    #         # Test configuration
-    #         annotation_file = '/Users/angansen/Documents/labelerr/test_data/preannotation.json'  # Create this folder and add some test images
-    #         client_id = '1'
-    #         project_id='tabby_straightforward_tapir_38354'
-    #         annotation_format='coco'
-    #         result=self.client.upload_preannotation_by_project_id(project_id,client_id,annotation_format,annotation_file)
+    # upload pre annotation file
+    def test_preannotation_file_by_project_id(self):
+            """
+            Test uploading multiple files from a folder to a dataset.
+            /Users/angansen/Documents/labelerr/test_data
+            """
+            # Test configuration
+            annotation_file = '/Users/angansen/Documents/labelerr/test_data/preannotation.json'  # Create this folder and add some test images
+            client_id = '1'
+            project_id='tabby_straightforward_tapir_38354'
+            annotation_format='coco_json'
+            result=self.client.upload_preannotation_by_project_id(project_id,client_id,annotation_format,annotation_file)
 
-    #         # result should not have error
-    #         self.assertTrue('error' not in result)
+            # result should not have error
+            self.assertTrue('error' not in result)
         
-    #         # Log the validation result
-    #         print("Validation of folder upload dataset result: SUCCESS", result)
+            # Log the validation result
+            print("Validation of folder upload dataset result: SUCCESS", result)
 
 
 
