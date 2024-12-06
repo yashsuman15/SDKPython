@@ -126,55 +126,50 @@ class TestLabellerrClient(unittest.TestCase):
 
 
     # upload pre annotation file
-    def test_preannotation_file_by_project_id(self):
-            """
-            Test uploading multiple files from a folder to a dataset.
-            /Users/angansen/Documents/labelerr/test_data
-            """
-            # Test configuration
-            annotation_file = '/Users/angansen/Documents/labelerr/test_data/preannotation.json'  # Create this folder and add some test images
-            client_id = '1'
-            project_id='tabby_straightforward_tapir_38354'
-            annotation_format='coco_json'
-            result=self.client.upload_preannotation_by_project_id(project_id,client_id,annotation_format,annotation_file)
-
-            # result should not have error
-            self.assertTrue('error' not in result)
-        
-            # Log the validation result
-            print("Validation of folder upload dataset result: SUCCESS", result)
-
-
-
-
-    # def test_local_export(self):
+    # def test_preannotation_file_by_project_id(self):
     #         """
     #         Test uploading multiple files from a folder to a dataset.
     #         /Users/angansen/Documents/labelerr/test_data
     #         """
     #         # Test configuration
-    #         client_id = '1210'
+    #         annotation_file = '/Users/angansen/Documents/labelerr/test_data/preannotation.json'  # Create this folder and add some test images
+    #         client_id = '1'
     #         project_id='tabby_straightforward_tapir_38354'
-    #         export_config={
-    #         "export_name": "Test",
-    #         "export_description": "Test export",
-    #         "export_format": "json",
-    #         "export_destination": "local",
-    #         "question_ids": [
-    #             "all"
-    #         ],
-    #         "statuses": [
-    #             "accepted",
-    #             "rejected"
-    #         ]
-    #         }
-    #         result=self.client.create_local_export(project_id,client_id,export_config)
+    #         annotation_format='coco_json'
+    #         result=self.client.upload_preannotation_by_project_id(project_id,client_id,annotation_format,annotation_file)
 
     #         # result should not have error
-    #         self.assertTrue('err' not in result)
+    #         self.assertTrue('error' not in result)
         
     #         # Log the validation result
     #         print("Validation of folder upload dataset result: SUCCESS", result)
+
+
+
+
+    def test_local_export(self):
+            """
+            Test uploading multiple files from a folder to a dataset.
+            /Users/angansen/Documents/labelerr/test_data
+            """
+            # Test configuration
+            client_id = '1'
+            project_id='vivien_just_horse_78859'
+            export_config={
+            "export_name": "Test",
+            "export_description": "Test export",
+            "export_format": "coco_json",
+            "statuses": [
+                "review"
+            ]
+            }
+            result=self.client.create_local_export(project_id,client_id,export_config)
+
+            # result should not have error
+            self.assertTrue('error' not in result)
+        
+            # Log the validation result
+            print("Validation local upload: SUCCESS", result)
 
 
 

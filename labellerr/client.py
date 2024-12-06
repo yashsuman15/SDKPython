@@ -805,20 +805,27 @@ class LabellerrClient:
             if param not in locals():
                 raise LabellerrError(f"Required parameter {param} is missing")
 
-        
-
-        url=f"{self.base_url}/sdk_python/export/files?project_id={project_id}&client_id={client_id}"
-        payload = json.dumps(export_config)
-        headers = {
-        'api_key': 'f08d49.85f21d405680fd3460ffa2bdc9',
-        'api_secret': 'c8ddb6d24bc07242543d56e688edf57efcf98a01387fcc4a7c46441a9ac198d6',
-        'Origin': 'https://dev.labellerr.com',
-        'source':'sdk',
-        'Content-Type': 'application/json'
-        }
+        if export_config is None:
+            raise LabellerrError("export_config is null")
 
         try:
-            response = requests.request("POST", url, headers=headers, data=payload)
+            export_config.update({
+                "export_destination": "local",
+                "question_ids": [
+                    "all"
+                ]
+            })
+            payload = json.dumps(export_config)
+            response = requests.post(
+                f"{self.base_url}/sdk/export/files?project_id={project_id}&client_id={client_id}",
+                headers={
+                    'api_key': self.api_key,
+                    'api_secret': self.api_secret,
+                    'Origin': 'https://dev.labellerr.com',
+                    'Content-Type': 'application/json'
+                },
+                data=payload
+            )
             return response.json()
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to create local export: {str(e)}")
