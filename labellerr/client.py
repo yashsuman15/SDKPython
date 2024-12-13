@@ -11,7 +11,7 @@ import logging
 from datetime import datetime 
 import os
 
-FILE_BATCH_SIZE=20 * 1024 * 1024
+FILE_BATCH_SIZE=15 * 1024 * 1024
 TOTAL_FILES_SIZE_LIMIT_PER_DATASET=2.5*1024*1024*1024
 TOTAL_FILES_COUNT_LIMIT_PER_DATASET=2500
 ANNOTATION_FORMAT=['json', 'coco_json', 'csv', 'png']
