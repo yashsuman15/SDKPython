@@ -1,180 +1,373 @@
-# Labellerr SDK Documentation: Simplified Guide  
 
-## Table of Contents  
-
-1. [What is the Labellerr SDK?](#what-is-the-labellerr-sdk)  
-2. [How to Install](#how-to-install)  
-3. [Getting Started](#getting-started)  
-4. [Key Features](#key-features)  
+## Table of Contents
+1. [Introduction](#introduction)  
+2. [Installation](#installation)  
+3. [Data Types and Supported Formats](data-types-and-supported-formats)
+4. [Getting Started](#getting-started)  
+5. [Key Features](#key-features)  
    - [Creating a New Project](#creating-a-new-project)  
-   - [Uploading Annotations](#uploading-annotations)  
-   - [Exporting Project Data](#exporting-project-data)  
-5. [Dealing with Errors](#dealing-with-errors)  
-6. [Where to Get Help](#where-to-get-help)  
+   - [Uploading Pre-annotations](#uploading-pre-annotations)  
+   - [Exporting Project Data Locally](#exporting-project-data-locally)  
+   - [Retrieving All Projects for a Client](#retrieving-all-projects-for-a-client)
+   - [Retrieving All Datasets](#retrieving-all-datasets)
+6. [Error Handling](#error-handling)  
+7. [Support](#support)  
 
 ---
 
-## What is the Labellerr SDK?  
+## Introduction
 
-The **Labellerr SDK** is a toolkit for Python that helps you work with the Labellerr platform easily. Whether you need to start a new project, upload annotations, or download data, this SDK simplifies the process for you.  
+The **Labellerr SDK** is a Python library designed to make interacting with the Labellerr platform simple and efficient. With this SDK, you can manage data annotations, projects, and exports seamlessly in your applications.  
 
----
-
-## How to Install  
-
-To set up the Labellerr SDK, just open your terminal and run:  
-
-```bash  
-pip install https://github.com/tensormatics/SDKPython/releases/download/v1/labellerr_sdk-1.0.0.tar.gz  
-```  
-
-This will install everything you need to use the SDK in your Python programs.  
+This documentation will guide you through installing the SDK, understanding its core functionalities, and handling common errors.  
 
 ---
 
-## Getting Started  
+## Installation
 
-To start using the SDK:  
+To install the Labellerr SDK, use the following command:
 
-1. **Import the SDK**  
-   Add the following line to your Python script:  
-
-   ```python  
-   from labellerr.client import LabellerrClient  
-   ```  
-
-2. **Log In with Your API Keys**  
-   Replace `'your_api_key'` and `'your_api_secret'` with your actual credentials:  
-
-   ```python  
-   client = LabellerrClient('your_api_key', 'your_api_secret')  
-   ```  
-
-This sets up your connection to the Labellerr platform, making the SDK ready to use.  
+```bash
+pip install https://github.com/tensormatics/SDKPython/releases/download/v1/labellerr_sdk-1.0.0.tar.gz
+```
 
 ---
 
-## Key Features  
 
-### Creating a New Project  
+## Data Types and Supported Formats
 
-When you want to start a new project on Labellerr, here’s what to do:  
+The Labellerr SDK supports various data types and file formats for your annotation projects:
 
-1. **Prepare the Project Details**  
-   Describe your project using a dictionary. For example:  
+### Supported Data Types and Extensions
 
-   ```python  
-   project_payload = {
-       'client_id': '12345',  
-       'dataset_name': 'Sample Dataset',  
-       'dataset_description': 'Dataset for image classification',  
-       'data_type': 'image',  
-       'created_by': 'user@example.com',  
-       'project_name': 'Image Classification Project',  
-       'annotation_guide': [  
-           {  
-               "question_number": 1,  
-               "question": "What is the main object in the image?",  
-               "options": [{"option_name": "Car"}, {"option_name": "Building"}],  
-               "option_type": "SingleSelect",  
-               "required": True  
-           }  
-       ],  
-       'folder_to_upload': '/path/to/images'  
-   }  
-   ```  
+| Data Type | Description | Supported Extensions |
+|-----------|-------------|---------------------|
+| `image`   | Image files for visual annotation | `.jpg`, `.jpeg`, `.png`, `.bmp`, `.tiff` |
+| `video`   | Video content for temporal annotation | `.mp4` |
+| `audio`   | Audio files for sound annotation | `.mp3`, `.wav` |
+| `document`| Document files for text analysis | `.pdf` |
+| `text`    | Plain text files for text annotation | `.txt` |
 
-2. **Create the Project**  
+When using the SDK methods, specify the data type as one of: `'image'`, `'video'`, `'audio'`, `'document'`, or `'text'`.
 
-   ```python  
-   try:  
-       result = client.initiate_create_project(project_payload)  
-       print(f"Project created! Project ID: {result['project_id']}")  
-   except LabellerrError as e:  
-       print(f"Error creating project: {e}")  
-   ```  
+#### Example Usage with Data Types:
 
-This creates the project and provides you with a unique Project ID.  
+```python
+# When creating a dataset
+payload = {
+    'client_id': '12345',
+    'dataset_name': 'Image Dataset',
+    'data_type': 'image',  # Specify the data type here
+    # ... other configuration options
+}
+
+# When retrieving datasets
+result = client.get_all_dataset(client_id='12345', data_type='image')
+```
+
+**Note**: Ensure your files match the supported extensions for the specified data type to avoid upload errors.
 
 ---
 
-### Uploading Annotations  
 
-If you have annotations ready, you can upload them directly to a project.  
+## Getting Started
 
-1. **Get Your Annotation File Ready**  
-   Ensure your file follows the correct format (e.g., COCO, YOLO).  
+Once installed, you can start by importing and initializing the `LabellerrClient`. This client will handle all communication with the Labellerr platform.  
 
-2. **Upload the Annotations**  
+### Example:
 
-   ```python  
-   try:  
-       result = client.upload_preannotation_by_project_id(  
-           project_id='project_123',  
-           client_id='12345',  
-           annotation_format='coco',  
-           annotation_file='/path/to/annotations.json'  
-       )  
-       print("Annotations uploaded successfully!")  
-   except LabellerrError as e:  
-       print(f"Error uploading annotations: {e}")  
-   ```  
+```python
+from labellerr.client import LabellerrClient
 
-This updates the project with your annotation data.  
+# Initialize the client with your API credentials
+client = LabellerrClient('your_api_key', 'your_api_secret')
+```
+
+Replace `'your_api_key'` and `'your_api_secret'` with your actual API credentials provided by Labellerr.  
 
 ---
 
-### Exporting Project Data  
+## Key Features
 
-You can easily download project data to your local machine.  
+### Creating a New Project
 
-1. **Set Up the Export Details**  
+A **project** in Labellerr organizes your datasets and their annotations. Use the following method to create a project:
 
-   ```python  
-   export_config = {  
-       "export_name": "Weekly Export",  
-       "export_description": "Accepted annotations only",  
-       "export_format": "json",  
-       "export_destination": "local",  
-       "statuses": ["accepted"]  
-   }  
-   ```  
+#### Limitations:
+- Maximum of **2,500 files** per folder.
+- Total folder size should not exceed **2.5 GB**.
 
-2. **Download the Data**  
+#### Method:
 
-   ```python  
-   try:  
-       result = client.create_local_export('project_123', '12345', export_config)  
-       print(f"Export successful! Export ID: {result['export_id']}")  
-   except LabellerrError as e:  
-       print(f"Error exporting data: {e}")  
-   ```  
+```python
+def initiate_create_project(self, payload):
+    """
+    Initiates the creation of a new project.
+    Args:
+        payload (dict): Contains project configurations.
+    Returns:
+        dict: Contains project details.
+    """
+```
+
+#### Example Usage:
+
+```python
+project_payload = {
+    'client_id': '12345',
+    'dataset_name': 'Sample Dataset',
+    'dataset_description': 'A sample dataset for image classification',
+    'data_type': 'image',
+    'created_by': 'user@example.com',
+    'project_name': 'Image Classification Project',
+    'annotation_guide': [
+        {
+            "question_number": 1,
+            "question": "What is the main object in the image?",
+            "required": True,
+            "options": [
+                {"option_name": "Car"},
+                {"option_name": "Building"},
+                {"option_name": "Person"}
+            ],
+            "option_type": "SingleSelect"
+        }
+    ],
+    'rotation_config': {
+        'annotation_rotation_count': 0,
+        'review_rotation_count': 1,
+        'client_review_rotation_count': 0
+    },
+    'autolabel': False,
+    'folder_to_upload': '/path/to/image/folder'
+}
+
+try:
+    result = client.initiate_create_project(project_payload)
+    print(f"Project created successfully. Project ID: {result['project_id']}")
+except LabellerrError as e:
+    print(f"Project creation failed: {str(e)}")
+```
+
+### Uploading Pre-annotations
+
+Pre-annotations help predefine labels for your dataset, speeding up the annotation process.  
+
+#### Method:
+
+```python
+def upload_preannotation_by_project_id(self, project_id, client_id, annotation_format, annotation_file):
+    """
+    Uploads pre-annotations for a project.
+    Args:
+        project_id (str): The ID of the project.
+        client_id (str): The ID of the client.
+        annotation_format (str): Format of annotations (e.g., 'coco', 'yolo').
+        annotation_file (str): Path to the annotation file.
+    Returns:
+        dict: Response containing the upload status.
+    """
+```
+
+#### Example Usage:
+
+```python
+project_id = 'project_123'
+client_id = '12345'
+annotation_format = 'coco'
+annotation_file = '/path/to/annotations.json'
+
+try:
+    result = client.upload_preannotation_by_project_id(project_id, client_id, annotation_format, annotation_file)
+    print("Pre-annotations uploaded successfully.")
+except LabellerrError as e:
+    print(f"Pre-annotation upload failed: {str(e)}")
+```
+
+### Exporting Project Data Locally
+
+Export project data to analyze, store, or share it with others.  
+
+#### Acceptable Statuses:
+- `r_skipped`
+- `cr_skipped`
+- `p_annotation`
+- `review`
+- `r_assigned`
+- `rejected`
+- `p_review`
+- `client_review`
+- `cr_assigned`
+- `client_rejected`
+- `critical`
+- `accepted`
+#### Method:
+
+```python
+def create_local_export(self, project_id, client_id, export_config):
+    """
+    Creates a local export of project data.
+    Args:
+        project_id (str): The ID of the project.
+        client_id (str): The ID of the client.
+        export_config (dict): Configuration for the export.
+    Returns:
+        dict: Contains export details.
+    """
+```
+
+#### Example Usage:
+
+```python
+project_id = 'project_123'
+client_id = '12345'
+export_config = {
+    "export_name": "Weekly Export",
+    "export_description": "Export of all accepted annotations",
+    "export_format": "json",
+    "statuses": ["accepted"]
+}
+
+try:
+    result = client.create_local_export(project_id, client_id, export_config)
+    print(f"Local export created successfully. Export ID: {result['export_id']}")
+except LabellerrError as e:
+    print(f"Local export creation failed: {str(e)}")
+```
 
 ---
 
-## Dealing with Errors  
 
-Sometimes things don’t go as planned, but the SDK helps you identify what went wrong.  
+### Retrieving All Projects for a Client
 
-1. Wrap your code in a `try-except` block to catch errors:  
+You can retrieve all projects associated with a specific client ID using the following method:
 
-   ```python  
-   from labellerr.exceptions import LabellerrError  
+#### Method:
 
-   try:  
-       # Example function call  
-       result = client.some_function(args)  
-   except LabellerrError as e:  
-       print(f"An error occurred: {e}")  
-   ```  
+```python
+def get_all_project_per_client_id(self, client_id):
+    """
+    Retrieves all projects associated with a client ID.
+    Args:
+        client_id (str): The ID of the client.
+    Returns:
+        dict: Contains a list of projects in the 'response' field.
+    """
+```
 
-2. The SDK provides clear error messages to help you troubleshoot.  
+#### Example Usage:
+
+```python
+client_id = '12345'
+
+try:
+    result = client.get_all_project_per_client_id(client_id)
+    
+    # Check if projects were retrieved successfully
+    if result and 'response' in result:
+        projects = result['response']
+        print(f"Found {len(projects)} projects:")
+        for project in projects:
+            print(f"- Project ID: {project.get('project_id')}")
+            print(f"  Name: {project.get('project_name')}")
+            print(f"  Type: {project.get('data_type')}")
+except LabellerrError as e:
+    print(f"Failed to retrieve projects: {str(e)}")
+```
+
+This method is useful when you need to:
+- List all projects for a client
+- Find specific project IDs
+- Check project statuses
+- Get an overview of client's work
+
+The response includes detailed information about each project, including its ID, name, data type, and other relevant metadata.
+
 
 ---
 
-## Where to Get Help  
+### Retrieving All Datasets
 
-If you need assistance:  
+You can retrieve both linked and unlinked datasets associated with a client using the following method:
 
-- **Email**: [support@labellerr.com](mailto:support@labellerr.com)  
-- **Documentation**: [Labellerr Docs](https://docs.labellerr.com)  
+#### Method:
+
+```python
+def get_all_dataset(self, client_id, data_type):
+    """
+    Retrieves all datasets (both linked and unlinked) for a client.
+    Args:
+        client_id (str): The ID of the client.
+        data_type (str): Type of data (e.g., 'image', 'text', etc.)
+    Returns:
+        dict: Contains two lists - 'linked' and 'unlinked' datasets
+    """
+```
+
+#### Example Usage:
+
+```python
+client_id = '12345'
+data_type = 'image'
+
+try:
+    result = client.get_all_dataset(client_id, data_type)
+    
+    # Process linked datasets
+    linked_datasets = result['linked']
+    print(f"Found {len(linked_datasets)} linked datasets:")
+    for dataset in linked_datasets:
+        print(f"- Dataset ID: {dataset.get('dataset_id')}")
+        print(f"  Name: {dataset.get('dataset_name')}")
+        print(f"  Description: {dataset.get('dataset_description')}")
+
+    # Process unlinked datasets
+    unlinked_datasets = result['unlinked']
+    print(f"\nFound {len(unlinked_datasets)} unlinked datasets:")
+    for dataset in unlinked_datasets:
+        print(f"- Dataset ID: {dataset.get('dataset_id')}")
+        print(f"  Name: {dataset.get('dataset_name')}")
+        print(f"  Description: {dataset.get('dataset_description')}")
+
+except LabellerrError as e:
+    print(f"Failed to retrieve datasets: {str(e)}")
+```
+
+This method is useful when you need to:
+- Get an overview of all available datasets
+- Find datasets that are linked to projects
+- Identify unlinked datasets that can be associated with new projects
+- Manage dataset organization and project associations
+
+The response includes two lists:
+- `linked`: Datasets that are already associated with projects
+- `unlinked`: Datasets that are not yet associated with any project
+
+Each dataset object contains detailed information including its ID, name, description, and other metadata.
+
+---
+
+## Error Handling
+
+The Labellerr SDK uses a custom exception class, `LabellerrError`, to indicate issues during API interactions. Always wrap your function calls in `try-except` blocks to gracefully handle errors.  
+
+#### Example:
+
+```python
+from labellerr.exceptions import LabellerrError
+
+try:
+    # Example function call
+    result = client.initiate_create_project(payload)
+except LabellerrError as e:
+    print(f"An error occurred: {str(e)}")
+```
+
+---
+
+## Support
+
+If you encounter issues or have questions, feel free to contact the Labellerr support team:  
+
+- **Email**: support@labellerr.com  
+- **Documentation**: [Labellerr Documentation](https://docs.labellerr.com)  

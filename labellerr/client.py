@@ -10,6 +10,8 @@ import json
 import logging 
 from datetime import datetime 
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 FILE_BATCH_SIZE=15 * 1024 * 1024
 TOTAL_FILES_SIZE_LIMIT_PER_DATASET=2.5*1024*1024*1024
@@ -307,7 +309,7 @@ class LabellerrClient:
 
     def upload_folder_files_to_dataset(self, data_config):
         """
-        Uploads local files to a dataset.
+        Uploads local files from a folder to a dataset using parallel processing.
 
         :param data_config: A dictionary containing the configuration for the data.
         :return: A dictionary containing the response status and the list of successfully uploaded files.
@@ -315,187 +317,105 @@ class LabellerrClient:
         try:
             unique_id = str(uuid.uuid4())
             url = f"{self.base_url}/connectors/upload/local?data_type={data_config['data_type']}&dataset_id={data_config['dataset_id']}&project_id=null&project_independent=false&client_id={data_config['client_id']}&uuid={unique_id}"
-            data_config['url']=url
-            files_list = []
-            upload_queue=[]
-            success_queue=[]
-            fail_queue=[]
-
-            total_file_count, total_file_volumn, filenames=self.get_total_folder_file_count_and_total_size(data_config['folder_path'],data_config['data_type'])
+            data_config['url'] = url
             
-            if total_file_count>TOTAL_FILES_COUNT_LIMIT_PER_DATASET or total_file_volumn>TOTAL_FILES_SIZE_LIMIT_PER_DATASET:
-                if total_file_count>TOTAL_FILES_COUNT_LIMIT_PER_DATASET:
-                    raise LabellerrError(f"Total file count: {total_file_count} where limit is {TOTAL_FILES_COUNT_LIMIT_PER_DATASET} is too many file to upload")
-                if total_file_volumn>TOTAL_FILES_SIZE_LIMIT_PER_DATASET:
-                    raise LabellerrError(f"Total file size: {total_file_volumn/1024/1024:.1f}MB where the limit is {TOTAL_FILES_SIZE_LIMIT_PER_DATASET/1024/1024:.1f}MB is too large to upload")
+            success_queue = []
+            fail_queue = []
 
-            else:
-                print(f"Total file count: {total_file_count}")
-                print(f"Total file size: {total_file_volumn/1024/1024:.1f} MB")
-
-                # for root, _, filenames in os.walk(data_config['folder_path']):
-                #     print(f"commencing {len(filenames)} files uploading!")
-
-                total_file_size=0
-
-                for file_path in filenames:
-                    filename = os.path.basename(file_path)
-
-                    print('Reading file path...', file_path)
-                    upload_queue.append(file_path)
-                    print(f"cumulative file size {total_file_size} out of {FILE_BATCH_SIZE}")
-                    try:
-                        total_file_size += os.path.getsize(file_path)
-                        if total_file_size < FILE_BATCH_SIZE:
-                            print('Uploading more files to the batch')      
-
-                            with open(file_path, 'rb') as file_obj:
-                                files_list.append(
-                                    ('file', (filename, file_obj.read(), 'application/octet-stream'))
-                            )
-                        else:
-
-                            with open(file_path, 'rb') as file_obj:
-                                files_list.append(
-                                    ('file', (filename, file_obj.read(), 'application/octet-stream'))
-                            )                            
-                            print(f"Upload {len(files_list)} file(s) batch size {total_file_size/1024/1024:.1f}MB exceeds {FILE_BATCH_SIZE/1024/1024:.1f}MB")
-
-                            response=self.commence_files_upload(data_config,files_list)
-                            print(f"Response received: {response.status_code}")
-                        
-                            if response.status_code  != 200:
-                                raise LabellerrError(f"Upload failed: {response.status_code} - {response.text}")
-                            
-                            success_queue.extend(upload_queue)
-                            upload_queue = []
-                            total_file_size=0
-                            files_list=[]
-                    except Exception as e:
-                        print(f"Error opening file {file_path}: {str(e)}")
-                        fail_queue.extend(upload_queue)
-                        upload_queue = []
-                        continue
-                    
-
-
-                if files_list and len(files_list)>0:
-                    try:
-                        response=self.commence_files_upload(data_config,files_list)
-                        success_queue.append(upload_queue)
-                    except Exception as e:
-                        print(f"Error uploading files: {str(e)}")
-                        fail_queue.append(upload_queue)
-                    
-            return {
-                'track_id':unique_id,
-                'success':success_queue,
-                'fail':fail_queue
-            }
-        
-        except Exception as e:
-            raise LabellerrError(f"Failed to upload files: {str(e)}")
+            # Get files from folder
+            total_file_count, total_file_volumn, filenames = self.get_total_folder_file_count_and_total_size(
+                data_config['folder_path'], 
+                data_config['data_type']
+            )
             
-    
+            # Check file limits
+            if total_file_count > TOTAL_FILES_COUNT_LIMIT_PER_DATASET:
+                raise LabellerrError(f"Total file count: {total_file_count} where limit is {TOTAL_FILES_COUNT_LIMIT_PER_DATASET} is too many file to upload")
+            if total_file_volumn > TOTAL_FILES_SIZE_LIMIT_PER_DATASET:
+                raise LabellerrError(f"Total file size: {total_file_volumn/1024/1024:.1f}MB where the limit is {TOTAL_FILES_SIZE_LIMIT_PER_DATASET/1024/1024:.1f}MB is too large to upload")
 
-    def upload_files_to_dataset(self, data_config):
-        """
-        Uploads local files to a dataset.
+            print(f"Total file count: {total_file_count}")
+            print(f"Total file size: {total_file_volumn/1024/1024:.1f} MB")
 
-        :param data_config: A dictionary containing the configuration for the data.
-        :return: A dictionary containing the response status and the list of successfully uploaded files.
-        """
-        try:
-            unique_id = str(uuid.uuid4())
-            url = f"{self.base_url}/connectors/upload/local?data_type={data_config['data_type']}&dataset_id={data_config['dataset_id']}&project_id=null&project_independent=false&client_id={data_config['client_id']}&uuid={unique_id}"
-            data_config['url']=url
-            files_list = []
-            upload_queue=[]
-            success_queue=[]
-            fail_queue=[]
-
-            filenames=data_config['files_list']
-            total_file_count, total_file_volumn, filenames=self.get_total_file_count_and_total_size(filenames,data_config['data_type'])
-            
-            if total_file_count>TOTAL_FILES_COUNT_LIMIT_PER_DATASET or total_file_volumn>TOTAL_FILES_SIZE_LIMIT_PER_DATASET:
-                if total_file_count>TOTAL_FILES_COUNT_LIMIT_PER_DATASET:
-                    raise LabellerrError(f"Total file count: {total_file_count} where limit is {TOTAL_FILES_COUNT_LIMIT_PER_DATASET} is too many file to upload")
-                if total_file_volumn>TOTAL_FILES_SIZE_LIMIT_PER_DATASET:
-                    raise LabellerrError(f"Total file size: {total_file_volumn/1024/1024:.1f}MB where the limit is {TOTAL_FILES_SIZE_LIMIT_PER_DATASET/1024/1024:.1f}MB is too large to upload")
-
-            else:
-                print(f"Total file count: {total_file_count}")
-                print(f"Total file size: {total_file_volumn/1024/1024:.1f} MB")
-
-
-
-            total_file_size=0
+            # Group files into batches based on FILE_BATCH_SIZE
+            batches = []
+            current_batch = []
+            current_batch_size = 0
 
             for file_path in filenames:
-                filename = os.path.basename(file_path)
-
-                print('Reading file path...', file_path)
-                upload_queue.append(file_path)
-                print(f"cumulative file size {total_file_size} out of {FILE_BATCH_SIZE}")
-                print('Upload Queue',upload_queue)
                 try:
-                    total_file_size += os.path.getsize(file_path)
-                    if total_file_size < FILE_BATCH_SIZE:
-                        print('Uploading more files to the batch')      
-
-                        with open(file_path, 'rb') as file_obj:
-                            files_list.append(
-                                ('file', (filename, file_obj.read(), 'application/octet-stream'))
-                        )
+                    file_size = os.path.getsize(file_path)
+                    if current_batch_size + file_size > FILE_BATCH_SIZE:
+                        if current_batch:
+                            batches.append(current_batch)
+                        current_batch = [file_path]
+                        current_batch_size = file_size
                     else:
-
-                        with open(file_path, 'rb') as file_obj:
-                            files_list.append(
-                                ('file', (filename, file_obj.read(), 'application/octet-stream'))
-                        )             
-                        print(f"Upload {len(files_list)} file(s) batch size {total_file_size/1024/1024:.1f}MB exceeds {FILE_BATCH_SIZE/1024/1024:.1f}MB")
-               
-                        response=self.commence_files_upload(data_config,files_list)
-                        print(f"Response received: {response.status_code}")
-                    
-                        if response.status_code  != 200:
-                            raise LabellerrError(f"Upload failed: {response.status_code} - {response.text}")
-                        
-                        success_queue.extend(upload_queue)
-
-                        upload_queue = []
-                        total_file_size=0
-                        files_list=[]
+                        current_batch.append(file_path)
+                        current_batch_size += file_size
                 except Exception as e:
-                    print(f"Error opening file {file_path}: {str(e)}")
-                    fail_queue.extend(upload_queue)
-                    upload_queue = []
-                    continue
-                
-        
-            if files_list and len(files_list)>0:
-                try:
-                    print('before upload ',upload_queue)
-                    response=self.commence_files_upload(data_config,files_list)
-                    success_queue.extend(upload_queue)
-                except Exception as e:
-                    print(f"Error uploading files: {str(e)}")
-                    print('pusing to failed queue',upload_queue)
-                    fail_queue.extend(upload_queue)
-                finally:
-                    upload_queue = []
-                    
+                    print(f"Error reading file {file_path}: {str(e)}")
+                    fail_queue.append(file_path)
+
+            if current_batch:
+                batches.append(current_batch)
+
+            # Process batches in parallel
+            with ThreadPoolExecutor(max_workers=min(len(batches), 10)) as executor:
+                future_to_batch = {
+                    executor.submit(self._process_batch, data_config, batch): batch 
+                    for batch in batches
+                }
+
+                for future in as_completed(future_to_batch):
+                    batch = future_to_batch[future]
+                    try:
+                        result = future.result()
+                        if result['success']:
+                            success_queue.extend(batch)
+                        else:
+                            fail_queue.extend(batch)
+                    except Exception as e:
+                        print(f"Batch upload failed: {str(e)}")
+                        fail_queue.extend(batch)
+
             return {
-                'track_id':unique_id,
-                'success':success_queue,
-                'fail':fail_queue
+                'track_id': unique_id,
+                'success': success_queue,
+                'fail': fail_queue
             }
         
         except Exception as e:
             raise LabellerrError(f"Failed to upload files: {str(e)}")
-            
-       
 
+    def _process_batch(self, data_config, batch):
+        """
+        Helper method to process a batch of files.
+
+        :param data_config: The data configuration dictionary
+        :param batch: List of file paths to process
+        :return: Dictionary indicating success/failure
+        """
+        try:
+            files_list = []
+            for file_path in batch:
+                filename = os.path.basename(file_path)
+                try:
+                    with open(file_path, 'rb') as file_obj:
+                        files_list.append(
+                            ('file', (filename, file_obj.read(), 'application/octet-stream'))
+                        )
+                except Exception as e:
+                    print(f"Error reading file {file_path}: {str(e)}")
+                    return {'success': False}
+            print(f"processing a batch of {len(files_list)} files . . .")
+            response = self.commence_files_upload(data_config, files_list)
+            print('----------------------')
+            print("Batch processing done ",response)
+            return {'success': response}
+        except Exception as e:
+            print(f"Batch processing error: {str(e)}")
+            return {'success': False}
 
     def commence_files_upload(self,data_config,files_to_send):
         
@@ -509,6 +429,8 @@ class LabellerrClient:
         """
         try:
             print(f"Uploading {len(files_to_send)} file(s)")
+            # put a delay of 3 secs
+            time.sleep(3)
             headers = {
                     'client_id': data_config['client_id'],
                     'api_key': self.api_key,

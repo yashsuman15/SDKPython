@@ -9,6 +9,8 @@ class TestLabellerrClient(unittest.TestCase):
         # self.client = LabellerrClient('f483bd.53bac54d36b8382a176138d46c', 'c9d7255834ca6b67f55a6c5f60121d4fe7e47851c022bc0237fecda541ab0eae') #--dev
         self.client = LabellerrClient('f08d49.85f21d405680fd3460ffa2bdc9', 'c8ddb6d24bc07242543d56e688edf57efcf98a01387fcc4a7c46441a9ac198d6') #--prod
 
+    
+    
 
     # def test_create_project(self):
     #     client_id = '1'
@@ -86,8 +88,8 @@ class TestLabellerrClient(unittest.TestCase):
     #             "dataset_description": 'sample description',
     #             "autolabel":"false",
     #             # -----    Local Folder upload to dataset object   --------
-    #             # "folder_to_upload": '/Users/angansen/Documents/labelerr/test_image/male',
-    #             "files_to_upload":['/Users/angansen/Documents/labelerr/test_image/female/6890.jpg', '/Users/angansen/Documents/labelerr/test_image/female/6898.jpg', '/Users/angansen/Documents/labelerr/test_image/female/7416.jpg'],
+    #             "folder_to_upload": '/Users/angansen/Documents/labelerr/test_image',
+    #             # "files_to_upload":['/Users/angansen/Documents/labelerr/test_image/female/6890.jpg', '/Users/angansen/Documents/labelerr/test_image/female/6898.jpg', '/Users/angansen/Documents/labelerr/test_image/female/7416.jpg'],
     #             # ------ create empty project object   --------
     #             "project_name":'Test Project2',
     #             "annotation_guide":[
@@ -147,29 +149,29 @@ class TestLabellerrClient(unittest.TestCase):
 
 
 
-    def test_local_export(self):
-            """
-            Test uploading multiple files from a folder to a dataset.
-            /Users/angansen/Documents/labelerr/test_data
-            """
-            # Test configuration
-            client_id = '1'
-            project_id='vivien_just_horse_78859'
-            export_config={
-            "export_name": "Test",
-            "export_description": "Test export",
-            "export_format": "coco_json",
-            "statuses": [
-                "review"
-            ]
-            }
-            result=self.client.create_local_export(project_id,client_id,export_config)
+    # def test_local_export(self):
+    #         """
+    #         Test uploading multiple files from a folder to a dataset.
+    #         /Users/angansen/Documents/labelerr/test_data
+    #         """
+    #         # Test configuration
+    #         client_id = '1'
+    #         project_id='vivien_just_horse_78859'
+    #         export_config={
+    #         "export_name": "Test",
+    #         "export_description": "Test export",
+    #         "export_format": "coco_json",
+    #         "statuses": [
+    #             "review"
+    #         ]
+    #         }
+    #         result=self.client.create_local_export(project_id,client_id,export_config)
 
-            # result should not have error
-            self.assertTrue('error' not in result)
+    #         # result should not have error
+    #         self.assertTrue('error' not in result)
         
-            # Log the validation result
-            print("Validation local upload: SUCCESS", result)
+    #         # Log the validation result
+    #         print("Validation local upload: SUCCESS", result)
 
 
 
@@ -290,6 +292,33 @@ class TestLabellerrClient(unittest.TestCase):
     #     except LabellerrError as e:
     #         print(f"An error occurred: {e}")
     #         raise
+
+    def test_get_all_dataset(self):
+        """
+        Test retrieving all datasets for a client.
+        """
+        try:
+            # Test configuration
+            client_id = '1'
+            data_type = 'image'
+
+            # Call the method
+            result = self.client.get_all_dataset(client_id, data_type)
+
+            # Verify the response structure
+            self.assertIsInstance(result, dict)
+            self.assertIn('linked', result)
+            self.assertIn('unlinked', result)
+            self.assertIsInstance(result['linked'], list)
+            self.assertIsInstance(result['unlinked'], list)
+
+
+            # Log success
+            print(f"Successfully retrieved {len(result['linked'])} linked and {len(result['unlinked'])} unlinked datasets")
+
+        except LabellerrError as e:
+            print(f"An error occurred: {e}")
+            raise
 
 if __name__ == '__main__':
     unittest.main()
