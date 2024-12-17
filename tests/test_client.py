@@ -77,53 +77,53 @@ class TestLabellerrClient(unittest.TestCase):
     #         raise
 
 
-    # def test_initiate_project(self):
-    #     try:
-    #         payload={
-    #             # -----  Create empty dataset object   --------
-    #             "client_id":'1',
-    #             "dataset_name": 'Sample',
-    #             "data_type": "image",
-    #             "created_by":'angansen@gmail.com',
-    #             "dataset_description": 'sample description',
-    #             "autolabel":"false",
-    #             # -----    Local Folder upload to dataset object   --------
-    #             "folder_to_upload": '/Users/angansen/Documents/labelerr/test_image',
-    #             # "files_to_upload":['/Users/angansen/Documents/labelerr/test_image/female/6890.jpg', '/Users/angansen/Documents/labelerr/test_image/female/6898.jpg', '/Users/angansen/Documents/labelerr/test_image/female/7416.jpg'],
-    #             # ------ create empty project object   --------
-    #             "project_name":'Test Project2',
-    #             "annotation_guide":[
-    #                                     {
-    #                                         "question_number": 1,
-    #                                         "question": "Test4",
-    #                                         "required": 'false',
-    #                                         "options": [
-    #                                             {
-    #                                                 "option_name": "#4682B4"
-    #                                             }
-    #                                         ],
-    #                                         "question_id": "533bb0c8-fb2b-4394-a8e1-5042a944802f",
-    #                                         "option_type": "BoundingBox",
-    #                                         "question_metadata": []
-    #                                     }
-    #                                 ],
-    #             "rotation_config":{
-    #                 'annotation_rotation_count': 0,
-    #                 'review_rotation_count': 1,
-    #                 'client_review_rotation_count': 0
-    #             }
-    #         }
+    def test_initiate_project(self):
+        try:
+            payload={
+                # -----  Create empty dataset object   --------
+                "client_id":'1',
+                "dataset_name": 'Sample',
+                "data_type": "image",
+                "created_by":'angansen@gmail.com',
+                "dataset_description": 'sample description',
+                "autolabel":"false",
+                # -----    Local Folder upload to dataset object   --------
+                "folder_to_upload": '/Users/angansen/Documents/labelerr/test_image',
+                # "files_to_upload":['/Users/angansen/Documents/labelerr/test_image/female/6890.jpg', '/Users/angansen/Documents/labelerr/test_image/female/6898.jpg', '/Users/angansen/Documents/labelerr/test_image/female/7416.jpg'],
+                # ------ create empty project object   --------
+                "project_name":'Test Project2',
+                "annotation_guide":[
+                                        {
+                                            "question_number": 1,
+                                            "question": "Test4",
+                                            "required": 'false',
+                                            "options": [
+                                                {
+                                                    "option_name": "#4682B4"
+                                                }
+                                            ],
+                                            "question_id": "533bb0c8-fb2b-4394-a8e1-5042a944802f",
+                                            "option_type": "BoundingBox",
+                                            "question_metadata": []
+                                        }
+                                    ],
+                "rotation_config":{
+                    'annotation_rotation_count': 0,
+                    'review_rotation_count': 1,
+                    'client_review_rotation_count': 0
+                }
+            }
 
-    #         result = self.client.initiate_create_project(payload)
-    #         self.assertEqual(result['response'], 'success')
+            result = self.client.initiate_create_project(payload)
+            self.assertEqual(result['response'], 'success')
 
-    #         # Log the return value
-    #         print(f"Project initiate api response: {result}")
+            # Log the return value
+            print(f"Project initiate api response: {result}")
 
 
-    #     except LabellerrError as e:
-    #         print(f"An error occurred: {e}")
-    #         raise
+        except LabellerrError as e:
+            print(f"An error occurred: {e}")
+            raise
 
 
 
@@ -293,32 +293,32 @@ class TestLabellerrClient(unittest.TestCase):
     #         print(f"An error occurred: {e}")
     #         raise
 
-    def test_get_all_dataset(self):
-        """
-        Test retrieving all datasets for a client.
-        """
-        try:
-            # Test configuration
-            client_id = '1'
-            data_type = 'image'
+    # def test_get_all_dataset(self):
+    #     """
+    #     Test retrieving all datasets for a client.
+    #     """
+    #     try:
+    #         # Test configuration
+    #         client_id = '1'
+    #         data_type = 'image'
 
-            # Call the method
-            result = self.client.get_all_dataset(client_id, data_type)
+    #         # Call the method
+    #         result = self.client.get_all_dataset(client_id, data_type)
 
-            # Verify the response structure
-            self.assertIsInstance(result, dict)
-            self.assertIn('linked', result)
-            self.assertIn('unlinked', result)
-            self.assertIsInstance(result['linked'], list)
-            self.assertIsInstance(result['unlinked'], list)
+    #         # Verify the response structure
+    #         self.assertIsInstance(result, dict)
+    #         self.assertIn('linked', result)
+    #         self.assertIn('unlinked', result)
+    #         self.assertIsInstance(result['linked'], list)
+    #         self.assertIsInstance(result['unlinked'], list)
 
 
-            # Log success
-            print(f"Successfully retrieved {len(result['linked'])} linked and {len(result['unlinked'])} unlinked datasets")
+    #         # Log success
+    #         print(f"Successfully retrieved {len(result['linked'])} linked and {len(result['unlinked'])} unlinked datasets")
 
-        except LabellerrError as e:
-            print(f"An error occurred: {e}")
-            raise
+    #     except LabellerrError as e:
+    #         print(f"An error occurred: {e}")
+    #         raise
 
 if __name__ == '__main__':
     unittest.main()

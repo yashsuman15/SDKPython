@@ -15,6 +15,7 @@ import time
 from multiprocessing import cpu_count
 
 FILE_BATCH_SIZE=15 * 1024 * 1024
+FILE_BATCH_COUNT=900
 TOTAL_FILES_SIZE_LIMIT_PER_DATASET=2.5*1024*1024*1024
 TOTAL_FILES_COUNT_LIMIT_PER_DATASET=2500
 ANNOTATION_FORMAT=['json', 'coco_json', 'csv', 'png']
@@ -22,7 +23,7 @@ ANNOTATION_FORMAT=['json', 'coco_json', 'csv', 'png']
 ## DATA TYPES: image, video, audio, document, text
 DATA_TYPES=('image', 'video', 'audio', 'document', 'text')
 DATA_TYPE_FILE_EXT = {
-    'image': ['.jpg','.jpeg', '.png', '.bmp', '.tiff'],
+    'image': ['.jpg','.jpeg', '.png', '.tiff'],
     'video': ['.mp4'],
     'audio': ['.mp3', '.wav'],
     'document': ['.pdf'],
@@ -346,7 +347,7 @@ class LabellerrClient:
             for file_path in filenames:
                 try:
                     file_size = os.path.getsize(file_path)
-                    if current_batch_size + file_size > FILE_BATCH_SIZE:
+                    if current_batch_size + file_size > FILE_BATCH_SIZE or len(current_batch) >= FILE_BATCH_COUNT:
                         if current_batch:
                             batches.append(current_batch)
                         current_batch = [file_path]
