@@ -12,6 +12,7 @@ from datetime import datetime
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+from multiprocessing import cpu_count
 
 FILE_BATCH_SIZE=15 * 1024 * 1024
 TOTAL_FILES_SIZE_LIMIT_PER_DATASET=2.5*1024*1024*1024
@@ -360,8 +361,17 @@ class LabellerrClient:
             if current_batch:
                 batches.append(current_batch)
 
+            print('CPU count',cpu_count()," Batch Count",len(batches))
+
+            # Calculate optimal number of workers based on CPU count and batch count
+            max_workers = min(
+                cpu_count(),  # Number of CPU cores
+                len(batches),  # Number of batches
+                20
+            )
+
             # Process batches in parallel
-            with ThreadPoolExecutor(max_workers=min(len(batches), 10)) as executor:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 future_to_batch = {
                     executor.submit(self._process_batch, data_config, batch): batch 
                     for batch in batches
