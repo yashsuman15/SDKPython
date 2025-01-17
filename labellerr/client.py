@@ -1,5 +1,6 @@
 # labellerr/client.py
 
+from concurrent import futures
 import requests
 import uuid
 from .exceptions import LabellerrError
@@ -927,8 +928,8 @@ class LabellerrClient:
             if response.status_code != 200:
                 raise LabellerrError(f"Failed to upload preannotation: {response.text}")
             
-            
-            return self.preannotation_job_status()
+            future = self.preannotation_job_status_async()
+            return future.result() 
         except Exception as e:
             logging.error(f"Failed to upload preannotation: {str(e)}")
             raise LabellerrError(f"Failed to upload preannotation: {str(e)}")

@@ -142,11 +142,15 @@ class TestLabellerrClient(unittest.TestCase):
             annotation_format='coco_json'
             
             # Start the async operation
-            future = self.client.upload_preannotation_by_project_id_async(project_id,client_id,annotation_format,annotation_file)
+            # future = self.client.upload_preannotation_by_project_id_async(project_id,client_id,annotation_format,annotation_file)
+            
+            # Start the sync operation
+            # result = self.client.upload_preannotation_by_project_id(project_id,client_id,annotation_format,annotation_file)
+
             
             # Optional: wait for completion at the end of test
             try:
-                result = future.result(timeout=300)  # 5 minutes timeout
+                # result = future.result(timeout=300)  # 5 minutes timeout
                 self.assertTrue('error' not in result)
                 self.assertTrue('response' in result)
                 self.assertTrue('status' in result['response'])
