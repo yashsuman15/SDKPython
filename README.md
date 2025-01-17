@@ -1,4 +1,3 @@
-
 ## Table of Contents
 1. [Introduction](#introduction)  
 2. [Installation](#installation)  
@@ -151,21 +150,21 @@ except LabellerrError as e:
 
 ### Uploading Pre-annotations
 
-Pre-annotations help predefine labels for your dataset, speeding up the annotation process.  
+Pre-annotations help predefine labels for your dataset, speeding up the annotation process. The method will upload your annotations and wait for the processing to complete.
 
 #### Method:
 
 ```python
 def upload_preannotation_by_project_id(self, project_id, client_id, annotation_format, annotation_file):
     """
-    Uploads pre-annotations for a project.
+    Uploads pre-annotations for a project and waits for processing to complete.
     Args:
         project_id (str): The ID of the project.
         client_id (str): The ID of the client.
         annotation_format (str): Format of annotations (e.g., 'coco', 'yolo').
         annotation_file (str): Path to the annotation file.
     Returns:
-        dict: Response containing the upload status.
+        dict: Response containing the final processing status.
     """
 ```
 
@@ -178,11 +177,27 @@ annotation_format = 'coco'
 annotation_file = '/path/to/annotations.json'
 
 try:
+    # Upload and wait for processing to complete
     result = client.upload_preannotation_by_project_id(project_id, client_id, annotation_format, annotation_file)
-    print("Pre-annotations uploaded successfully.")
+    
+    # Check the final status
+    if result['response']['status'] == 'completed':
+        print("Pre-annotations processed successfully")
+        # Access additional metadata if needed
+        metadata = result['response'].get('metadata', {})
+        files_not_updated = metadata.get('files_not_updated', [])
+        if files_not_updated:
+            print(f"Note: {len(files_not_updated)} files were not updated")
 except LabellerrError as e:
     print(f"Pre-annotation upload failed: {str(e)}")
 ```
+
+The method will:
+1. Upload your annotation file
+2. Monitor the processing status
+3. Return the final result once processing is complete
+
+**Note**: The processing time depends on the size of your annotation file and the number of annotations. The method will wait until processing is complete before returning.
 
 ### Exporting Project Data Locally
 
