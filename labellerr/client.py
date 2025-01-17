@@ -13,6 +13,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 from multiprocessing import cpu_count
+import concurrent.futures
 
 FILE_BATCH_SIZE=15 * 1024 * 1024
 FILE_BATCH_COUNT=900
@@ -29,8 +30,11 @@ DATA_TYPE_FILE_EXT = {
     'document': ['.pdf'],
     'text': ['.txt']
 }
-# python -m unittest discover -s tests
 
+SCOPE_LIST=['project','client','public']
+
+# python -m unittest discover -s tests --run
+# python setup.py sdist bdist_wheel -- build
 create_dataset_parameters={}
 
 class LabellerrClient:
@@ -221,7 +225,7 @@ class LabellerrClient:
             logging.error(f"Failed to create dataset: {e}")
             raise
 
-    def get_all_dataset(self,client_id,datatype):
+    def get_all_dataset(self,client_id,datatype,project_id,scope):
         """
         Retrieves a dataset by its ID.
 
@@ -229,9 +233,23 @@ class LabellerrClient:
         :param datatype: The type of data for the dataset.
         :return: The dataset as JSON.
         """
+        # validate parameters
+        if not isinstance(client_id, str):
+            raise LabellerrError("client_id must be a string")
+        if not isinstance(datatype, str):
+            raise LabellerrError("datatype must be a string")
+        if not isinstance(project_id, str):
+            raise LabellerrError("project_id must be a string")
+        if not isinstance(scope, str):
+            raise LabellerrError("scope must be a string")
+        # scope value should on in the list SCOPE_LIST
+        if scope not in SCOPE_LIST:
+            raise LabellerrError(f"scope must be one of {', '.join(SCOPE_LIST)}")
+
+        # get dataset
         try:
             unique_id = str(uuid.uuid4())
-            url = f"{self.base_url}/datasets/list?client_id={client_id}&data_type={datatype}&permission_level=project&project_id=null&uuid={unique_id}"
+            url = f"{self.base_url}/datasets/list?client_id={client_id}&data_type={datatype}&permission_level={scope}&project_id={project_id}&uuid={unique_id}"
             headers = {
                 'client_id': client_id,
                 'content-type': 'application/json',
@@ -245,7 +263,6 @@ class LabellerrClient:
 
             if response.status_code != 200:
                 raise LabellerrError(f"dataset retrieval failed: {response.status_code} - {response.text}")
-
             return response.json()
         except LabellerrError as e:
             logging.error(f"Failed to retrieve dataset: {e}")
@@ -356,7 +373,7 @@ class LabellerrClient:
                         current_batch.append(file_path)
                         current_batch_size += file_size
                 except Exception as e:
-                    print(f"Error reading file {file_path}: {str(e)}")
+                    print(f"Error reading {file_path}: {str(e)}")
                     fail_queue.append(file_path)
 
             if current_batch:
@@ -414,7 +431,7 @@ class LabellerrClient:
                 try:
                     with open(file_path, 'rb') as file_obj:
                         files_list.append(
-                            ('file', (filename, file_obj.read(), 'application/octet-stream'))
+                            ('file', (filename, file_obj, 'application/octet-stream'))
                         )
                 except Exception as e:
                     print(f"Error reading file {file_path}: {str(e)}")
@@ -672,6 +689,188 @@ class LabellerrClient:
             raise LabellerrError("client_review_rotation_count must be 0 when annotation_rotation_count is greater than 1")
 
 
+    def _upload_preannotation_sync(self, project_id, client_id, annotation_format, annotation_file):
+        """
+        Synchronous implementation of preannotation upload.
+
+        :param project_id: The ID of the project.
+        :param client_id: The ID of the client.
+        :param annotation_format: The format of the preannotation data.
+        :param annotation_file: The file path of the preannotation data.
+        :return: The response from the API.
+        :raises LabellerrError: If the upload fails.
+        """
+        try:
+            # validate all the parameters
+            required_params = ['project_id', 'client_id', 'annotation_format', 'annotation_file']
+            for param in required_params:
+                if param not in locals():
+                    raise LabellerrError(f"Required parameter {param} is missing")
+                
+            if annotation_format not in ANNOTATION_FORMAT:
+                raise LabellerrError(f"Invalid annotation_format. Must be one of {ANNOTATION_FORMAT}")
+            
+            url = f"{self.base_url}/actions/upload_answers?project_id={project_id}&answer_format={annotation_format}&client_id={client_id}"
+
+            # validate if the file exist then extract file name from the path
+            if os.path.exists(annotation_file):
+                file_name = os.path.basename(annotation_file)
+            else:
+                raise LabellerrError("File not found")
+
+            payload = {}
+            with open(annotation_file, 'rb') as f:
+                files = [
+                    ('file', (file_name, f, 'application/octet-stream'))
+                ]
+                response = requests.request("POST", url, headers={
+                    'client_id': client_id,
+                    'api_key': self.api_key,
+                    'api_secret': self.api_secret,
+                    'origin': 'https://dev.labellerr.com',
+                    'source':'sdk',
+                    'email_id': self.api_key
+                }, data=payload, files=files)
+            response_data=response.json()
+            print('response_data -- ', response_data)
+            # read job_id from the response
+            job_id = response_data['response']['job_id']
+            self.client_id = client_id
+            self.job_id = job_id
+            self.project_id = project_id
+
+            print(f"Preannotation upload successful. Job ID: {job_id}")
+            if response.status_code != 200:
+                raise LabellerrError(f"Failed to upload preannotation: {response.text}")
+            
+            return self.preannotation_job_status()
+        except Exception as e:
+            logging.error(f"Failed to upload preannotation: {str(e)}")
+            raise LabellerrError(f"Failed to upload preannotation: {str(e)}")
+
+    def upload_preannotation_by_project_id_async(self, project_id, client_id, annotation_format, annotation_file):
+        """
+        Asynchronously uploads preannotation data to a project.
+
+        :param project_id: The ID of the project.
+        :param client_id: The ID of the client.
+        :param annotation_format: The format of the preannotation data.
+        :param annotation_file: The file path of the preannotation data.
+        :return: A Future object that will contain the response from the API.
+        :raises LabellerrError: If the upload fails.
+        """
+        def upload_and_monitor():
+            try:
+                # validate all the parameters
+                required_params = ['project_id', 'client_id', 'annotation_format', 'annotation_file']
+                for param in required_params:
+                    if param not in locals():
+                        raise LabellerrError(f"Required parameter {param} is missing")
+                    
+                if annotation_format not in ANNOTATION_FORMAT:
+                    raise LabellerrError(f"Invalid annotation_format. Must be one of {ANNOTATION_FORMAT}")
+                
+                url = f"{self.base_url}/actions/upload_answers?project_id={project_id}&answer_format={annotation_format}&client_id={client_id}"
+
+                # validate if the file exist then extract file name from the path
+                if os.path.exists(annotation_file):
+                    file_name = os.path.basename(annotation_file)
+                else:
+                    raise LabellerrError("File not found")
+
+                payload = {}
+                with open(annotation_file, 'rb') as f:
+                    files = [
+                        ('file', (file_name, f, 'application/octet-stream'))
+                    ]
+                    response = requests.request("POST", url, headers={
+                        'client_id': client_id,
+                        'api_key': self.api_key,
+                        'api_secret': self.api_secret,
+                        'origin': 'https://dev.labellerr.com',
+                        'source':'sdk',
+                        'email_id': self.api_key
+                    }, data=payload, files=files)
+                response_data=response.json()
+                print('response_data -- ', response_data)
+                # read job_id from the response
+                job_id = response_data['response']['job_id']
+                self.client_id = client_id
+                self.job_id = job_id
+                self.project_id = project_id
+
+                print(f"Preannotation upload successful. Job ID: {job_id}")
+                if response.status_code != 200:
+                    raise LabellerrError(f"Failed to upload preannotation: {response.text}")
+                
+                # Now monitor the status
+                headers = {
+                    'client_id': str(self.client_id),
+                    'Origin': 'https://app.labellerr.com',
+                    'api_key': self.api_key,
+                    'api_secret': self.api_secret
+                }
+                status_url = f"{self.base_url}/actions/upload_answers_status?project_id={self.project_id}&job_id={self.job_id}&client_id={self.client_id}"
+                while True:
+                    try:
+                        response = requests.request("GET", status_url, headers=headers, data={})
+                        status_data = response.json()
+                        
+                        print(' >>> ', status_data)
+
+                        # Check if job is completed
+                        if status_data.get('response', {}).get('status') == 'completed':
+                            return status_data
+                            
+                        print('retrying after 5 seconds . . .')
+                        time.sleep(5)
+                        
+                    except Exception as e:
+                        logging.error(f"Failed to get preannotation job status: {str(e)}")
+                        raise LabellerrError(f"Failed to get preannotation job status: {str(e)}")
+                
+            except Exception as e:
+                logging.error(f"Failed to upload preannotation: {str(e)}")
+                raise LabellerrError(f"Failed to upload preannotation: {str(e)}")
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            return executor.submit(upload_and_monitor)
+
+    def preannotation_job_status_async(self):
+        """
+        Get the status of a preannotation job asynchronously.
+        
+        Returns:
+            concurrent.futures.Future: A future that will contain the final job status
+        """
+        def check_status():
+            headers = {
+                'client_id': str(self.client_id),
+                'Origin': 'https://app.labellerr.com',
+                'api_key': self.api_key,
+                'api_secret': self.api_secret
+            }
+            url = f"{self.base_url}/actions/upload_answers_status?project_id={self.project_id}&job_id={self.job_id}&client_id={self.client_id}"
+            payload = {}
+            while True:
+                try:
+                    response = requests.request("GET", url, headers=headers, data=payload)
+                    response_data = response.json()
+                    
+                    # Check if job is completed
+                    if response_data.get('response', {}).get('status') == 'completed':
+                        return response_data
+                        
+                    print('retrying after 5 seconds . . .')
+                    time.sleep(5)
+                    
+                except Exception as e:
+                    logging.error(f"Failed to get preannotation job status: {str(e)}")
+                    raise LabellerrError(f"Failed to get preannotation job status: {str(e)}")
+        
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            return executor.submit(check_status)
+
     def upload_preannotation_by_project_id(self,project_id,client_id,annotation_format,annotation_file):
 
         """
@@ -704,32 +903,35 @@ class LabellerrClient:
                 raise LabellerrError("File not found")
 
             payload = {}
-            # with open(annotation_file, 'rb') as f:
-            #     files = [('file', (file_name, f, 'application/json'))]
-            files=[
-                ('file',(file_name,open(annotation_file,'rb'),'application/octet-stream'))
+            with open(annotation_file, 'rb') as f:
+                files = [
+                    ('file', (file_name, f, 'application/octet-stream'))
                 ]
+                response = requests.request("POST", url, headers={
+                    'client_id': client_id,
+                    'api_key': self.api_key,
+                    'api_secret': self.api_secret,
+                    'origin': 'https://dev.labellerr.com',
+                    'source':'sdk',
+                    'email_id': self.api_key
+                }, data=payload, files=files)
+            response_data=response.json()
+            print('response_data -- ', response_data)
+            # read job_id from the response
+            job_id = response_data['response']['job_id']
+            self.client_id = client_id
+            self.job_id = job_id
+            self.project_id = project_id
 
-            headers = {
-            'client_id': client_id,
-            'api_key': self.api_key,
-            'api_secret': self.api_secret,
-            'origin': 'https://dev.labellerr.com',
-            'source':'sdk',
-            'email_id': self.api_key
-            }
-
-            response = requests.request("POST", url, headers=headers, data=payload, files=files)
-
-            print(response.text)
+            print(f"Preannotation upload successful. Job ID: {job_id}")
             if response.status_code != 200:
                 raise LabellerrError(f"Failed to upload preannotation: {response.text}")
             
-            return response.json()
+            
+            return self.preannotation_job_status()
         except Exception as e:
             logging.error(f"Failed to upload preannotation: {str(e)}")
             raise LabellerrError(f"Failed to upload preannotation: {str(e)}")
-
 
     def create_local_export(self,project_id,client_id,export_config):
 
@@ -879,5 +1081,3 @@ class LabellerrClient:
             logging.error(f"Failed to create project: {str(e)}")
             print(result)
             raise LabellerrError(f"Failed to create project: {str(e)}")
-        
-
