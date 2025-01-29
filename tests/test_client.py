@@ -1,4 +1,5 @@
 import unittest
+from labellerr import client
 from labellerr.client import LabellerrClient
 from labellerr.exceptions import LabellerrError
 import json
@@ -14,7 +15,7 @@ import time
 class TestLabellerrClient(unittest.TestCase):
     def setUp(self):
         self.client = LabellerrClient('64d61b.90c2cc4de6a8be69d2d32ffaeb', 'baa3d611f7780faf9d263c2857a57fc356a061fbde44e41820f066002a068dfc') #--dev
-        # self.client = LabellerrClient('2006c6.c9a76949feafa3a5e141360e3e', '89eb2f5ddff2114c79fdef17dffd29a1a209f1ac3f40a69cddb17d9f0bc48037') #--prod
+        # self.client = LabellerrClient('715682.e20efb43c6a2f6bca74d7af9ad', '4e10ee1508e98b262bf096b4dec959ba2cc83903ad7035331446ec5ede96ca2e') #--prod
     
     
 
@@ -83,87 +84,122 @@ class TestLabellerrClient(unittest.TestCase):
     #         raise
 
 
-    # def test_initiate_project(self):
-    #     try:
-    #         payload={
-    #             # -----  Create empty dataset object   --------
-    #             "client_id":'1',
-    #             "dataset_name": 'Sample',
-    #             "data_type": "image",
-    #             "created_by":'angansen@gmail.com',
-    #             "dataset_description": 'sample description',
-    #             "autolabel":"false",
-    #             # -----    Local Folder upload to dataset object   --------
-    #             "folder_to_upload": '/Users/angansen/Documents/labelerr/test_image',
-    #             # "files_to_upload":['/Users/angansen/Documents/labelerr/test_image/female/6890.jpg', '/Users/angansen/Documents/labelerr/test_image/female/6898.jpg', '/Users/angansen/Documents/labelerr/test_image/female/7416.jpg'],
-    #             # ------ create empty project object   --------
-    #             "project_name":'Test Project2',
-    #             "annotation_guide":[
-    #                                     {
-    #                                         "question_number": 1,
-    #                                         "question": "Test4",
-    #                                         "required": 'false',
-    #                                         "options": [
-    #                                             {
-    #                                                 "option_name": "#4682B4"
-    #                                             }
-    #                                         ],
-    #                                         "question_id": "533bb0c8-fb2b-4394-a8e1-5042a944802f",
-    #                                         "option_type": "BoundingBox",
-    #                                         "question_metadata": []
-    #                                     }
-    #                                 ],
-    #             "rotation_config":{
-    #                 'annotation_rotation_count': 0,
-    #                 'review_rotation_count': 1,
-    #                 'client_review_rotation_count': 0
-    #             }
-    #         }
-
-    #         result = self.client.initiate_create_project(payload)
-    #         self.assertEqual(result['response'], 'success')
-
-    #         # Log the return value
-    #         print(f"Project initiate api response: {result}")
-
-
-    #     except LabellerrError as e:
-    #         print(f"An error occurred: {e}")
-    #         raise
-
-
-
-    # upload pre annotation file
-    def test_preannotation_file_by_project_id(self):
+    def test_initiate_project(self):
         try:
-            annotation_file = '/Users/angansen/Documents/labelerr/_annotations_2500_images.json'
-            client_id = '1'
-            project_id='renee_smooth_frog_20413'
-            annotation_format='coco_json'
-            
-            # Start the async operation
-            # future = self.client.upload_preannotation_by_project_id_async(project_id,client_id,annotation_format,annotation_file)
-            
-            # Start the sync operation
-            # result = self.client.upload_preannotation_by_project_id(project_id,client_id,annotation_format,annotation_file)
+            # payload={
+            #     # -----  Create empty dataset object   --------
+            #     "client_id":'1',
+            #     "dataset_name": 'Sample',
+            #     "data_type": "image",
+            #     "created_by":'angansen@gmail.com',
+            #     "dataset_description": 'sample description',
+            #     "autolabel":"false",
+            #     # -----    Local Folder upload to dataset object   --------
+            #     "folder_to_upload": '/Users/angansen/Documents/labelerr/test_image',
+            #     # "files_to_upload":['/Users/angansen/Documents/labelerr/test_image/female/6890.jpg', '/Users/angansen/Documents/labelerr/test_image/female/6898.jpg', '/Users/angansen/Documents/labelerr/test_image/female/7416.jpg'],
+            #     # ------ create empty project object   --------
+            #     "project_name":'Test Project2',
+            #     "annotation_guide":[
+            #                             {
+            #                                 "question_number": 1,
+            #                                 "question": "Test4",
+            #                                 "required": 'false',
+            #                                 "options": [
+            #                                     {
+            #                                         "option_name": "#4682B4"
+            #                                     }
+            #                                 ],
+            #                                 "question_id": "533bb0c8-fb2b-4394-a8e1-5042a944802f",
+            #                                 "option_type": "BoundingBox",
+            #                                 "question_metadata": []
+            #                             }
+            #                         ],
+            #     "rotation_config":{
+            #         'annotation_rotation_count': 0,
+            #         'review_rotation_count': 1,
+            #         'client_review_rotation_count': 0
+            #     }
+            # }
 
-            
-            # Optional: wait for completion at the end of test
-            try:
-                # result = future.result(timeout=300)  # 5 minutes timeout
-                self.assertTrue('error' not in result)
-                self.assertTrue('response' in result)
-                self.assertTrue('status' in result['response'])
-                self.assertEqual(result['response']['status'], 'completed')
-            except Exception as e:
-                print(f"Error in future execution: {str(e)}")
-                raise
-            
-        except Exception as e:
+            payload={'client_id': '1', 'dataset_name': 'to_annotate_01_28', 'dataset_description': 'Dataset for image annotation', 'data_type': 'image', 'created_by': 'koushik.sampath@spotai.co', 'project_name': 'to_annotate_01_28', 'annotation_guide': [{'question_number': 1, 'question': 'What is the main object in the image?', 'required': True, 'options': [{'option_name': 'Car'}, {'option_name': 'Building'}, {'option_name': 'Person'}], 'option_type': 'SingleSelect'}], 'rotation_config': {'annotation_rotation_count': 0, 'review_rotation_count': 1, 'client_review_rotation_count': 0}, 'autolabel': False,'files_to_upload':['/Users/angansen/Documents/labelerr/test_image/femae/6890.jpg', '/Users/angansen/Documents/labelerr/test_image/femal/6898.jpg', '/Users/angansen/Documents/labelerr/test_image/femae/7416.jpg']}
+
+            result = self.client.initiate_create_project(payload)
+            self.assertEqual(result['response'], 'success')
+
+            # Log the return value
+            print(f"Project initiate api response: {result}")
+
+
+        except LabellerrError as e:
             print(f"An error occurred: {e}")
             raise
 
 
+
+    # # upload pre annotation file async
+    # def test_preannotation_file_by_project_id_async(self):
+    #     try:
+    #         annotation_file = '/Users/angansen/Documents/labelerr/_annotations_2500_images.json'
+    #         # client_id = '1'
+    #         # project_id='renee_smooth_frog_20413'
+            
+    #         client_id='8482'
+    #         project_id="karine_added_cricket_93735"
+
+    #         annotation_format='coco_json'
+            
+    #         # Start the async operation
+    #         future = self.client.upload_preannotation_by_project_id_async(project_id,client_id,annotation_format,annotation_file)
+            
+    #         # Start the sync operation
+    #         # result = self.client.upload_preannotation_by_project_id(project_id,client_id,annotation_format,annotation_file)
+
+            
+    #         # Optional: wait for completion at the end of test
+    #         try:
+    #             result = future.result(timeout=300)  # 5 minutes timeout
+    #             self.assertTrue('error' not in result)
+    #             self.assertTrue('response' in result)
+    #             self.assertTrue('status' in result['response'])
+    #             self.assertEqual(result['response']['status'], 'completed')
+    #         except Exception as e:
+    #             print(f"Error in future execution: {str(e)}")
+    #             raise
+            
+    #     except Exception as e:
+    #         print(f"An error occurred: {e}")
+    #         raise
+
+
+    # upload pre annotation file sync
+    # def test_preannotation_file_by_project_id(self):
+    #     try:
+    #         annotation_file = '/Users/angansen/Documents/labelerr/_annotations_2500_images.json'
+    #         client_id = '1'
+    #         project_id='renee_smooth_frog_20413'
+    #         annotation_format='coco_json'
+            
+    #         # Start the async operation
+    #         # future = self.client.upload_preannotation_by_project_id_async(project_id,client_id,annotation_format,annotation_file)
+            
+    #         # Start the sync operation
+    #         result = self.client.upload_preannotation_by_project_id(project_id,client_id,annotation_format,annotation_file)
+
+            
+    #         # Optional: wait for completion at the end of test
+    #         try:
+    #             # result = future.result(timeout=300)  # 5 minutes timeout
+    #             self.assertTrue('error' not in result)
+    #             self.assertTrue('response' in result)
+    #             self.assertTrue('status' in result['response'])
+    #             self.assertEqual(result['response']['status'], 'completed')
+    #         except Exception as e:
+    #             print(f"Error in future execution: {str(e)}")
+    #             raise
+            
+    #     except Exception as e:
+    #         print(f"An error occurred: {e}")
+    #         raise
 
 
     # def test_local_export(self):
