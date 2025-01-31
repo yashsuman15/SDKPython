@@ -1,24 +1,25 @@
 ## Table of Contents
-1. [Introduction](#introduction)  
-2. [Installation](#installation)  
+
+1. [Introduction](#introduction)
+2. [Installation](#installation)
 3. [Data Types and Supported Formats](data-types-and-supported-formats)
-4. [Getting Started](#getting-started)  
-5. [Key Features](#key-features)  
-   - [Creating a New Project](#creating-a-new-project)  
-   - [Uploading Pre-annotations](#uploading-pre-annotations)  
-   - [Exporting Project Data Locally](#exporting-project-data-locally)  
+4. [Getting Started](#getting-started)
+5. [Key Features](#key-features)
+   - [Creating a New Project](#creating-a-new-project)
+   - [Uploading Pre-annotations](#uploading-pre-annotations)
+   - [Exporting Project Data Locally](#exporting-project-data-locally)
    - [Retrieving All Projects for a Client](#retrieving-all-projects-for-a-client)
    - [Retrieving All Datasets](#retrieving-all-datasets)
-6. [Error Handling](#error-handling)  
-7. [Support](#support)  
+6. [Error Handling](#error-handling)
+7. [Support](#support)
 
 ---
 
 ## Introduction
 
-The **Labellerr SDK** is a Python library designed to make interacting with the Labellerr platform simple and efficient. With this SDK, you can manage data annotations, projects, and exports seamlessly in your applications.  
+The **Labellerr SDK** is a Python library designed to make interacting with the Labellerr platform simple and efficient. With this SDK, you can manage data annotations, projects, and exports seamlessly in your applications.
 
-This documentation will guide you through installing the SDK, understanding its core functionalities, and handling common errors.  
+This documentation will guide you through installing the SDK, understanding its core functionalities, and handling common errors.
 
 ---
 
@@ -27,11 +28,10 @@ This documentation will guide you through installing the SDK, understanding its 
 To install the Labellerr SDK, use the following command:
 
 ```bash
-pip install https://github.com/tensormatics/SDKPython/releases/download/v1/labellerr_sdk-1.0.0.tar.gz
+pip install https://github.com/tensormatics/SDKPython/releases/download/prod/labellerr_sdk-1.0.0.tar.gz
 ```
 
 ---
-
 
 ## Data Types and Supported Formats
 
@@ -39,13 +39,14 @@ The Labellerr SDK supports various data types and file formats for your annotati
 
 ### Supported Data Types and Extensions
 
-| Data Type | Description | Supported Extensions |
-|-----------|-------------|---------------------|
-| `image`   | Image files for visual annotation | `.jpg`, `.jpeg`, `.png`, `.bmp`, `.tiff` |
-| `video`   | Video content for temporal annotation | `.mp4` |
-| `audio`   | Audio files for sound annotation | `.mp3`, `.wav` |
-| `document`| Document files for text analysis | `.pdf` |
-| `text`    | Plain text files for text annotation | `.txt` |
+
+| Data Type  | Description                           | Supported Extensions                     |
+| ------------ | --------------------------------------- | ------------------------------------------ |
+| `image`    | Image files for visual annotation     | `.jpg`, `.jpeg`, `.png`, `.bmp`, `.tiff` |
+| `video`    | Video content for temporal annotation | `.mp4`                                   |
+| `audio`    | Audio files for sound annotation      | `.mp3`, `.wav`                           |
+| `document` | Document files for text analysis      | `.pdf`                                   |
+| `text`     | Plain text files for text annotation  | `.txt`                                   |
 
 When using the SDK methods, specify the data type as one of: `'image'`, `'video'`, `'audio'`, `'document'`, or `'text'`.
 
@@ -68,21 +69,21 @@ result = client.get_all_dataset(client_id='12345', data_type='image')
 
 ---
 
-
 ## Getting Started
 
-Once installed, you can start by importing and initializing the `LabellerrClient`. This client will handle all communication with the Labellerr platform.  
+Once installed, you can start by importing and initializing the `LabellerrClient`. This client will handle all communication with the Labellerr platform.
 
 ### Example:
 
 ```python
 from labellerr.client import LabellerrClient
+from labellerr.exceptions import LabellerrError
 
 # Initialize the client with your API credentials
 client = LabellerrClient('your_api_key', 'your_api_secret')
 ```
 
-Replace `'your_api_key'` and `'your_api_secret'` with your actual API credentials provided by Labellerr.  
+Replace `'your_api_key'` and `'your_api_secret'` with your actual API credentials provided by Labellerr.
 
 ---
 
@@ -93,25 +94,26 @@ Replace `'your_api_key'` and `'your_api_secret'` with your actual API credential
 A **project** in Labellerr organizes your datasets and their annotations. Use the following method to create a project:
 
 #### Limitations:
+
 - Maximum of **2,500 files** per folder.
 - Total folder size should not exceed **2.5 GB**.
 
-#### Method:
+#### Acceptable value:
 
-```python
-def initiate_create_project(self, payload):
-    """
-    Initiates the creation of a new project.
-    Args:
-        payload (dict): Contains project configurations.
-    Returns:
-        dict: Contains project details.
-    """
-```
+* **option_type**
+  * `'input'`, `'radio'`, `'boolean'`, `'select'`, `'dropdown'`, `'stt'`, `'imc'`, `'BoundingBox'`, `'polygon'`, `'dot'`, `'audio'`
 
 #### Example Usage:
 
 ```python
+from labellerr.client import LabellerrClient
+from labellerr.exceptions import LabellerrError
+
+
+# Initialize the client with your API credentials
+client = LabellerrClient('your_api_key', 'your_api_secret')
+
+
 project_payload = {
     'client_id': '12345',
     'dataset_name': 'Sample Dataset',
@@ -123,13 +125,14 @@ project_payload = {
         {
             "question_number": 1,
             "question": "What is the main object in the image?",
+            "question_id": "533bb0c8-fb2b-4394-a8e1-5042a944802f",
+            "option_type": "dropdown",
             "required": True,
             "options": [
                 {"option_name": "Car"},
                 {"option_name": "Building"},
                 {"option_name": "Person"}
-            ],
-            "option_type": "SingleSelect"
+            ]
         }
     ],
     'rotation_config': {
@@ -195,7 +198,7 @@ annotation_file = '/path/to/annotations.json'
 try:
     # Upload and wait for processing to complete
     result = client.upload_preannotation_by_project_id(project_id, client_id, annotation_format, annotation_file)
-    
+  
     # Check the final status
     if result['response']['status'] == 'completed':
         print("Pre-annotations processed successfully")
@@ -217,9 +220,9 @@ annotation_file = '/path/to/annotations.json'
 try:
     # Start the async upload - returns immediately
     future = client.upload_preannotation_by_project_id_async(project_id, client_id, annotation_format, annotation_file)
-    
+  
     print("Upload started, you can do other work here...")
-    
+  
     # When you need the result, wait for completion
     try:
         result = future.result(timeout=300)  # 5 minutes timeout
@@ -238,17 +241,19 @@ except LabellerrError as e:
 #### Choosing Between Sync and Async
 
 1. **Synchronous Method**:
+
    - Simpler to use - just call and wait for result
    - Blocks until processing is complete
    - Good for scripts and sequential processing
-
 2. **Asynchronous Method**:
+
    - Returns immediately with a Future object
    - Allows you to do other work while processing
    - Can set timeouts and handle long-running uploads
    - Better for applications that need to stay responsive
 
 Both methods will:
+
 1. Upload your annotation file
 2. Monitor the processing status
 3. Return the final result with complete status information
@@ -257,9 +262,10 @@ Both methods will:
 
 ### Exporting Project Data Locally
 
-Export project data to analyze, store, or share it with others.  
+Export project data to analyze, store, or share it with others.
 
 #### Acceptable Statuses:
+
 - `r_skipped`
 - `cr_skipped`
 - `p_annotation`
@@ -272,6 +278,7 @@ Export project data to analyze, store, or share it with others.
 - `client_rejected`
 - `critical`
 - `accepted`
+
 #### Method:
 
 ```python
@@ -308,7 +315,6 @@ except LabellerrError as e:
 
 ---
 
-
 ### Retrieving All Projects for a Client
 
 You can retrieve all projects associated with a specific client ID using the following method:
@@ -333,7 +339,7 @@ client_id = '12345'
 
 try:
     result = client.get_all_project_per_client_id(client_id)
-    
+  
     # Check if projects were retrieved successfully
     if result and 'response' in result:
         projects = result['response']
@@ -347,13 +353,13 @@ except LabellerrError as e:
 ```
 
 This method is useful when you need to:
+
 - List all projects for a client
 - Find specific project IDs
 - Check project statuses
 - Get an overview of client's work
 
 The response includes detailed information about each project, including its ID, name, data type, and other relevant metadata.
-
 
 ---
 
@@ -383,7 +389,7 @@ data_type = 'image'
 
 try:
     result = client.get_all_dataset(client_id, data_type)
-    
+  
     # Process linked datasets
     linked_datasets = result['linked']
     print(f"Found {len(linked_datasets)} linked datasets:")
@@ -405,12 +411,14 @@ except LabellerrError as e:
 ```
 
 This method is useful when you need to:
+
 - Get an overview of all available datasets
 - Find datasets that are linked to projects
 - Identify unlinked datasets that can be associated with new projects
 - Manage dataset organization and project associations
 
 The response includes two lists:
+
 - `linked`: Datasets that are already associated with projects
 - `unlinked`: Datasets that are not yet associated with any project
 
@@ -420,7 +428,7 @@ Each dataset object contains detailed information including its ID, name, descri
 
 ## Error Handling
 
-The Labellerr SDK uses a custom exception class, `LabellerrError`, to indicate issues during API interactions. Always wrap your function calls in `try-except` blocks to gracefully handle errors.  
+The Labellerr SDK uses a custom exception class, `LabellerrError`, to indicate issues during API interactions. Always wrap your function calls in `try-except` blocks to gracefully handle errors.
 
 #### Example:
 
@@ -438,7 +446,7 @@ except LabellerrError as e:
 
 ## Support
 
-If you encounter issues or have questions, feel free to contact the Labellerr support team:  
+If you encounter issues or have questions, feel free to contact the Labellerr support team:
 
-- **Email**: support@labellerr.com  
-- **Documentation**: [Labellerr Documentation](https://docs.labellerr.com)  
+- **Email**: support@labellerr.com
+- **Documentation**: [Labellerr Documentation](https://docs.labellerr.com)
