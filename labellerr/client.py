@@ -119,7 +119,7 @@ class LabellerrClient:
 
             if response.status_code not in [200, 201]:
                 if response.status_code >= 400 and response.status_code < 500:
-                    raise LabellerrError({'error' :response.text,'code':response.status_code})
+                    raise LabellerrError({'error' :response.json(),'code':response.status_code})
                 elif response.status_code >= 500:
                     raise LabellerrError({
                         'status': 'internal server error',
@@ -176,7 +176,7 @@ class LabellerrClient:
 
             if response.status_code not in [200, 201]:
                 if response.status_code >= 400 and response.status_code < 500:
-                    raise LabellerrError({'error' :response.text,'code':response.status_code})
+                    raise LabellerrError({'error' :response.json(),'code':response.status_code})
                 elif response.status_code >= 500:
                     raise LabellerrError({
                         'status': 'internal server error',
@@ -238,7 +238,7 @@ class LabellerrClient:
             response = requests.request("POST", url, headers=headers, data=payload)
             if response.status_code not in [200, 201]:
                 if response.status_code >= 400 and response.status_code < 500:
-                    raise LabellerrError({'error' :response.text,'code':response.status_code})
+                    raise LabellerrError({'error' :response.json(),'code':response.status_code})
                 elif response.status_code >= 500:
                     raise LabellerrError({
                         'status': 'internal server error',
@@ -289,8 +289,15 @@ class LabellerrClient:
 
             response = requests.request("GET", url, headers=headers)
 
-            if response.status_code != 200:
-                raise LabellerrError(f"dataset retrieval failed: {response.status_code} - {response.text}")
+            if response.status_code not in [200, 201]:
+                if response.status_code >= 400 and response.status_code < 500:
+                    raise LabellerrError({'error' :response.json(),'code':response.status_code})
+                elif response.status_code >= 500:
+                    raise LabellerrError({
+                        'status': 'internal server error',
+                        'message': 'Please contact support with the request tracking id',
+                        'request_id': unique_id
+                    })
             return response.json()
         except LabellerrError as e:
             logging.error(f"Failed to retrieve dataset: {e}")
@@ -542,7 +549,7 @@ class LabellerrClient:
             
             if response.status_code not in [200, 201]:
                 if response.status_code >= 400 and response.status_code < 500:
-                    raise LabellerrError({'error' :response.text,'code':response.status_code})
+                    raise LabellerrError({'error' :response.json(),'code':response.status_code})
                 elif response.status_code >= 500:
                     raise LabellerrError({
                         'status': 'internal server error',
@@ -680,6 +687,16 @@ class LabellerrClient:
 
             response = requests.request("GET", url, headers=headers, data=payload)
 
+            if response.status_code not in [200, 201]:
+                if response.status_code >= 400 and response.status_code < 500:
+                    raise LabellerrError({'error' :response.json(),'code':response.status_code})
+                elif response.status_code >= 500:
+                    raise LabellerrError({
+                        'status': 'internal server error',
+                        'message': 'Please contact support with the request tracking id',
+                        'request_id': unique_id
+                    })
+
             print(response.text)
             return response.json()
         except Exception as e:
@@ -714,9 +731,10 @@ class LabellerrClient:
             }            
 
             response = requests.request("GET", url, headers=headers, data=payload)
+
             if response.status_code not in [200, 201]:
                 if response.status_code >= 400 and response.status_code < 500:
-                    raise LabellerrError({'error' :response.text,'code':response.status_code})
+                    raise LabellerrError({'error' :response.json(),'code':response.status_code})
                 elif response.status_code >= 500:
                     raise LabellerrError({
                         'status': 'internal server error',
@@ -759,9 +777,10 @@ class LabellerrClient:
         # print('annotation_guide -- ', guide_payload)
         try:
             response = requests.request("POST", url, headers=headers, data=guide_payload)
+            
             if response.status_code not in [200, 201]:
                 if response.status_code >= 400 and response.status_code < 500:
-                    raise LabellerrError({'error' :response.text,'code':response.status_code})
+                    raise LabellerrError({'error' :response.json(),'code':response.status_code})
                 elif response.status_code >= 500:
                     raise LabellerrError({
                         'status': 'internal server error',
@@ -842,6 +861,17 @@ class LabellerrClient:
                     'email_id': self.api_key
                 }, data=payload, files=files)
             response_data=response.json()
+
+            if response.status_code not in [200, 201]:
+                if response.status_code >= 400 and response.status_code < 500:
+                    raise LabellerrError({'error' :response.json(),'code':response.status_code})
+                elif response.status_code >= 500:
+                    raise LabellerrError({
+                        'status': 'internal server error',
+                        'message': 'Please contact support with the request tracking id',
+                        'request_id': unique_id
+                    })
+
             print('response_data -- ', response_data)
             # read job_id from the response
             job_id = response_data['response']['job_id']
@@ -902,6 +932,15 @@ class LabellerrClient:
                         'email_id': self.api_key
                     }, data=payload, files=files)
                 response_data=response.json()
+                if response.status_code not in [200, 201]:
+                    if response.status_code >= 400 and response.status_code < 500:
+                        raise LabellerrError({'error' :response.json(),'code':response.status_code})
+                    elif response.status_code >= 500:
+                        raise LabellerrError({
+                            'status': 'internal server error',
+                            'message': 'Please contact support with the request tracking id',
+                            'request_id': unique_id
+                        })                
                 print('response_data -- ', response_data)
                 # read job_id from the response
                 job_id = response_data['response']['job_id']
@@ -1063,8 +1102,11 @@ class LabellerrClient:
                 if export_config[param] not in LOCAL_EXPORT_FORMAT:
                     raise LabellerrError(f"Invalid export_format. Must be one of {LOCAL_EXPORT_FORMAT}")
             if param == 'statuses':
-                if export_config[param] not in LOCAL_EXPORT_STATUS:
-                    raise LabellerrError(f"Invalid statuses. Must be one of {LOCAL_EXPORT_STATUS}")
+                if not isinstance(export_config[param], list):
+                    raise LabellerrError(f"Invalid statuses. Must be an array")
+                for status in export_config[param]:
+                    if status not in LOCAL_EXPORT_STATUS:
+                        raise LabellerrError(f"Invalid status. Must be one of {LOCAL_EXPORT_STATUS}")
 
 
         try:
@@ -1088,7 +1130,7 @@ class LabellerrClient:
 
             if response.status_code not in [200, 201]:
                 if response.status_code >= 400 and response.status_code < 500:
-                    raise LabellerrError({'error' :response.text,'code':response.status_code})
+                    raise LabellerrError({'error' :response.json(),'code':response.status_code})
                 elif response.status_code >= 500:
                     raise LabellerrError({
                         'status': 'internal server error',

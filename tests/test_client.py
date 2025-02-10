@@ -14,8 +14,8 @@ import time
 
 class TestLabellerrClient(unittest.TestCase):
     def setUp(self):
-        self.client = LabellerrClient('64d61b.90c2cc4de6a8be69d2d32ffaeb', 'baa3d611f7780faf9d263c2857a57fc356a061fbde44e41820f066002a068dfc') #--dev
-        # self.client = LabellerrClient('715682.e20efb43c6a2f6bca74d7af9ad', '4e10ee1508e98b262bf096b4dec959ba2cc83903ad7035331446ec5ede96ca2e') #--prod
+        # self.client = LabellerrClient('64d61b.90c2cc4de6a8be69d2d32ffaeb', 'baa3d611f7780faf9d263c2857a57fc356a061fbde44e41820f066002a068dfc') #--dev
+        self.client = LabellerrClient('715682.e20efb43c6a2f6bca74d7af9ad', '4e10ee1508e98b262bf096b4dec959ba2cc83903ad7035331446ec5ede96ca2e') #--prod
     
     
 
@@ -84,55 +84,56 @@ class TestLabellerrClient(unittest.TestCase):
     #         raise
 
 
-    def test_initiate_project(self):
-        try:
-            # payload={
-            #     # -----  Create empty dataset object   --------
-            #     "client_id":'1',
-            #     "dataset_name": 'Sample',
-            #     "data_type": "image",
-            #     "created_by":'angansen@gmail.com',
-            #     "dataset_description": 'sample description',
-            #     "autolabel":"false",
-            #     # -----    Local Folder upload to dataset object   --------
-            #     "folder_to_upload": '/Users/angansen/Documents/labelerr/test_image',
-            #     # "files_to_upload":['/Users/angansen/Documents/labelerr/test_image/female/6890.jpg', '/Users/angansen/Documents/labelerr/test_image/female/6898.jpg', '/Users/angansen/Documents/labelerr/test_image/female/7416.jpg'],
-            #     # ------ create empty project object   --------
-            #     "project_name":'Test Project2',
-            #     "annotation_guide":[
-            #                             {
-            #                                 "question_number": 1,
-            #                                 "question": "Test4",
-            #                                 "required": 'false',
-            #                                 "options": [
-            #                                     {
-            #                                         "option_name": "#4682B4"
-            #                                     }
-            #                                 ],
-            #                                 "question_id": "533bb0c8-fb2b-4394-a8e1-5042a944802f",
-            #                                 "option_type": "BoundingBox",
-            #                                 "question_metadata": []
-            #                             }
-            #                         ],
-            #     "rotation_config":{
-            #         'annotation_rotation_count': 0,
-            #         'review_rotation_count': 1,
-            #         'client_review_rotation_count': 0
-            #     }
-            # }
+    # def test_initiate_project(self):
+    #     try:
+    #         payload={
+    #             # -----  Create empty dataset object   --------
+    #             # "client_id":'1',
+    #             "client_id":"8482",
+    #             "dataset_name": 'Sample',
+    #             "data_type": "image",
+    #             "created_by":'angansen@gmail.com',
+    #             "dataset_description": 'sample description',
+    #             "autolabel":"false",
+    #             # -----    Local Folder upload to dataset object   --------
+    #             # "folder_to_upload": '/Users/angansen/Documents/labelerr/test_image/female',
+    #             "files_to_upload":['/Users/angansen/Documents/labelerr/test_image/female/6890.jpg', '/Users/angansen/Documents/labelerr/test_image/female/6898.jpg', '/Users/angansen/Documents/labelerr/test_image/female/7416.jpg'],
+    #             # ------ create empty project object   --------
+    #             "project_name":'Test Project2',
+    #             "annotation_guide":[
+    #                                     {
+    #                                         "question_number": 1,
+    #                                         "question": "Test4",
+    #                                         "required": 'false',
+    #                                         "options": [
+    #                                             {
+    #                                                 "option_name": "#4682B4"
+    #                                             }
+    #                                         ],
+    #                                         # "question_id": "533bb0c8-fb2b-4394-a8e1-5042a944802f",
+    #                                         "option_type": "dropdown",
+    #                                         "question_metadata": []
+    #                                     }
+    #                                 ],
+    #             "rotation_config":{
+    #                 'annotation_rotation_count': 0,
+    #                 'review_rotation_count': 1,
+    #                 'client_review_rotation_count': 0
+    #             }
+    #         }
 
-            payload={'client_id': '1', 'dataset_name': 'to_annotate_01_28', 'dataset_description': 'Dataset for image annotation', 'data_type': 'image', 'created_by': 'koushik.sampath@spotai.co', 'project_name': 'to_annotate_01_28', 'annotation_guide': [{'question_number': 1, 'question': 'What is the main object in the image?', 'required': True, 'options': [{'option_name': 'Car'}, {'option_name': 'Building'}, {'option_name': 'Person'}], 'option_type': 'SingleSelect'}], 'rotation_config': {'annotation_rotation_count': 0, 'review_rotation_count': 1, 'client_review_rotation_count': 0}, 'autolabel': False,'files_to_upload':['/Users/angansen/Documents/labelerr/test_image/femae/6890.jpg', '/Users/angansen/Documents/labelerr/test_image/femal/6898.jpg', '/Users/angansen/Documents/labelerr/test_image/femae/7416.jpg']}
+    #         # payload={'client_id': '1', 'dataset_name': 'to_annotate_01_28', 'dataset_description': 'Dataset for image annotation', 'data_type': 'image', 'created_by': 'koushik.sampath@spotai.co', 'project_name': 'to_annotate_01_28', 'annotation_guide': [{'question_number': 1, 'question': 'What is the main object in the image?', 'required': True, 'options': [{'option_name': 'Car'}, {'option_name': 'Building'}, {'option_name': 'Person'}], 'option_type': 'SingleSelect'}], 'rotation_config': {'annotation_rotation_count': 0, 'review_rotation_count': 1, 'client_review_rotation_count': 0}, 'autolabel': False, 'folder_to_upload': '/Users/angansen/Documents/labelerr'}
 
-            result = self.client.initiate_create_project(payload)
-            self.assertEqual(result['response'], 'success')
+    #         result = self.client.initiate_create_project(payload)
+    #         self.assertEqual(result['response'], 'success')
 
-            # Log the return value
-            print(f"Project initiate api response: {result}")
+    #         # Log the return value
+    #         print(f"Project initiate api response: {result}")
 
 
-        except LabellerrError as e:
-            print(f"An error occurred: {e}")
-            raise
+    #     except LabellerrError as e:
+    #         print(f"An error occurred: {e}")
+    #         raise
 
 
 
@@ -202,29 +203,31 @@ class TestLabellerrClient(unittest.TestCase):
     #         raise
 
 
-    # def test_local_export(self):
-    #         """
-    #         Test uploading multiple files from a folder to a dataset.
-    #         /Users/angansen/Documents/labelerr/test_data
-    #         """
-    #         # Test configuration
-    #         client_id = '1'
-    #         project_id='vivien_just_horse_78859'
-    #         export_config={
-    #         "export_name": "Test",
-    #         "export_description": "Test export",
-    #         "export_format": "coco_json",
-    #         "statuses": [
-    #             "review"
-    #         ]
-    #         }
-    #         result=self.client.create_local_export(project_id,client_id,export_config)
+    def test_local_export(self):
+            """
+            Test uploading multiple files from a folder to a dataset.
+            /Users/angansen/Documents/labelerr/test_data
+            """
+            # Test configuration
+            # client_id = '1'
+            # project_id='vivien_just_horse_78859'
 
-    #         # result should not have error
-    #         self.assertTrue('error' not in result)
+            project_id = 'corri_brilliant_opossum_71110'
+            client_id = '8482'
+            export_config = {
+                "export_name": "Test Export",
+                "export_description": "Export of all accepted annotations",
+                "export_format": "json",
+                "statuses": ["accepted"]
+            }
+
+            result=self.client.create_local_export(project_id,client_id,export_config)
+
+            # result should not have error
+            self.assertTrue('error' not in result)
         
-    #         # Log the validation result
-    #         print("Validation local upload: SUCCESS", result)
+            # Log the validation result
+            print("Validation local upload: SUCCESS", result)
 
 
 

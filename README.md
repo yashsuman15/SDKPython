@@ -7,6 +7,7 @@
 5. [Key Features](#key-features)
    - [Creating a New Project](#creating-a-new-project)
    - [Uploading Pre-annotations](#uploading-pre-annotations)
+   - [Local Export](#local-export)
    - [Exporting Project Data Locally](#exporting-project-data-locally)
    - [Retrieving All Projects for a Client](#retrieving-all-projects-for-a-client)
    - [Retrieving All Datasets](#retrieving-all-datasets)
@@ -155,41 +156,16 @@ except LabellerrError as e:
 
 Pre-annotations help predefine labels for your dataset, speeding up the annotation process. The SDK provides both synchronous and asynchronous methods for uploading pre-annotations.
 
-#### Synchronous Method
-
-```python
-def upload_preannotation_by_project_id(self, project_id, client_id, annotation_format, annotation_file):
-    """
-    Uploads pre-annotations for a project and waits for processing to complete.
-    Args:
-        project_id (str): The ID of the project.
-        client_id (str): The ID of the client.
-        annotation_format (str): Format of annotations (e.g., 'coco', 'yolo').
-        annotation_file (str): Path to the annotation file.
-    Returns:
-        dict: Response containing the final processing status.
-    """
-```
-
-#### Asynchronous Method
-
-```python
-def upload_preannotation_by_project_id_async(self, project_id, client_id, annotation_format, annotation_file):
-    """
-    Uploads pre-annotations for a project asynchronously.
-    Args:
-        project_id (str): The ID of the project.
-        client_id (str): The ID of the client.
-        annotation_format (str): Format of annotations (e.g., 'coco', 'yolo').
-        annotation_file (str): Path to the annotation file.
-    Returns:
-        concurrent.futures.Future: A Future object that will contain the final processing status.
-    """
-```
-
 #### Example Usage (Synchronous):
 
 ```python
+from labellerr.client import LabellerrClient
+from labellerr.exceptions import LabellerrError
+
+
+# Initialize the client with your API credentials
+client = LabellerrClient('your_api_key', 'your_api_secret')
+
 project_id = 'project_123'
 client_id = '12345'
 annotation_format = 'coco'
@@ -212,6 +188,14 @@ except LabellerrError as e:
 #### Example Usage (Asynchronous):
 
 ```python
+from labellerr.client import LabellerrClient
+from labellerr.exceptions import LabellerrError
+
+
+# Initialize the client with your API credentials
+client = LabellerrClient('your_api_key', 'your_api_secret')
+
+
 project_id = 'project_123'
 client_id = '12345'
 annotation_format = 'coco'
@@ -260,43 +244,30 @@ Both methods will:
 
 **Note**: The processing time depends on the size of your annotation file and the number of annotations. For the sync method, this means waiting time. For the async method, you can do other work during this time.
 
-### Exporting Project Data Locally
+---
 
-Export project data to analyze, store, or share it with others.
+### Local Export
 
-#### Acceptable Statuses:
+The SDK provides functionality to export project data locally. This feature allows you to export annotations in various formats for further analysis or backup purposes.
 
-- `r_skipped`
-- `cr_skipped`
-- `p_annotation`
-- `review`
-- `r_assigned`
-- `rejected`
-- `p_review`
-- `client_review`
-- `cr_assigned`
-- `client_rejected`
-- `critical`
-- `accepted`
+#### Acceptable values:
 
-#### Method:
-
-```python
-def create_local_export(self, project_id, client_id, export_config):
-    """
-    Creates a local export of project data.
-    Args:
-        project_id (str): The ID of the project.
-        client_id (str): The ID of the client.
-        export_config (dict): Configuration for the export.
-    Returns:
-        dict: Contains export details.
-    """
-```
+* statuses:
+  * `'review'`, `'r_assigned'`,`'client_review'`, `'cr_assigned'`,`'accepted'`
+* export_format:
+  * `'json'`, `'coco_json'`, `'csv'`, `'png'`
 
 #### Example Usage:
 
 ```python
+from labellerr.client import LabellerrClient
+from labellerr.exceptions import LabellerrError
+
+
+# Initialize the client with your API credentials
+client = LabellerrClient('your_api_key', 'your_api_secret')
+
+
 project_id = 'project_123'
 client_id = '12345'
 export_config = {
@@ -313,28 +284,24 @@ except LabellerrError as e:
     print(f"Local export creation failed: {str(e)}")
 ```
 
+**Note**: The export process creates a local copy of your project's annotations based on the specified status filters. This is useful for backup purposes or when you need to process the annotations offline.
+
 ---
 
 ### Retrieving All Projects for a Client
 
 You can retrieve all projects associated with a specific client ID using the following method:
 
-#### Method:
-
-```python
-def get_all_project_per_client_id(self, client_id):
-    """
-    Retrieves all projects associated with a client ID.
-    Args:
-        client_id (str): The ID of the client.
-    Returns:
-        dict: Contains a list of projects in the 'response' field.
-    """
-```
-
 #### Example Usage:
 
 ```python
+from labellerr.client import LabellerrClient
+from labellerr.exceptions import LabellerrError
+
+
+# Initialize the client with your API credentials
+client = LabellerrClient('your_api_key', 'your_api_secret')
+
 client_id = '12345'
 
 try:
@@ -367,23 +334,16 @@ The response includes detailed information about each project, including its ID,
 
 You can retrieve both linked and unlinked datasets associated with a client using the following method:
 
-#### Method:
-
-```python
-def get_all_dataset(self, client_id, data_type):
-    """
-    Retrieves all datasets (both linked and unlinked) for a client.
-    Args:
-        client_id (str): The ID of the client.
-        data_type (str): Type of data (e.g., 'image', 'text', etc.)
-    Returns:
-        dict: Contains two lists - 'linked' and 'unlinked' datasets
-    """
-```
-
 #### Example Usage:
 
 ```python
+from labellerr.client import LabellerrClient
+from labellerr.exceptions import LabellerrError
+
+
+# Initialize the client with your API credentials
+client = LabellerrClient('your_api_key', 'your_api_secret')
+
 client_id = '12345'
 data_type = 'image'
 
