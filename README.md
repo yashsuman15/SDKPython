@@ -2,17 +2,26 @@
 
 1. [Introduction](#introduction)
 2. [Installation](#installation)
-3. [Data Types and Supported Formats](data-types-and-supported-formats)
-4. [Getting Started](#getting-started)
-5. [Key Features](#key-features)
-   - [Creating a New Project](#creating-a-new-project)
-   - [Uploading Pre-annotations](#uploading-pre-annotations)
-   - [Local Export](#local-export)
-   - [Exporting Project Data Locally](#exporting-project-data-locally)
-   - [Retrieving All Projects for a Client](#retrieving-all-projects-for-a-client)
-   - [Retrieving All Datasets](#retrieving-all-datasets)
-6. [Error Handling](#error-handling)
-7. [Support](#support)
+3. [Getting Started](#getting-started)
+   - [Obtaining API Keys and Client ID](#obtaining-api_keys-and-client_id)
+   - [Example](#example)
+4. [Creating a New Project](#creating-a-new-project)
+   - [Limitations](#limitations)
+   - [Acceptable Values](#acceptable-value)
+   - [Data Types and Supported Formats](#data-types-and-supported-formats)
+   - [Example Usage](#example-usage)
+5. [Uploading Pre-annotations](#uploading-pre-annotations)
+   - [Example Usage (Synchronous)](#example-usage-synchronous)
+   - [Example Usage (Asynchronous)](#example-usage-asynchronous)
+6. [Local Export](#local-export)
+   - [Acceptable Values](#acceptable-values)
+   - [Example Usage](#example-usage-1)
+7. [Retrieving All Projects for a Client](#retrieving-all-projects-for-a-client)
+   - [Example Usage](#example-usage-2)
+8. [Retrieving All Datasets](#retrieving-all-datasets)
+   - [Example Usage](#example-usage-3)
+9. [Error Handling](#error-handling)
+10. [Support](#support)
 
 ---
 
@@ -34,7 +43,47 @@ pip install https://github.com/tensormatics/SDKPython/releases/download/prod/lab
 
 ---
 
-## Data Types and Supported Formats
+## Getting Started
+
+#### Obtaining `api_keys` and `client_id`:
+
+**To obtain your api_keys and client_id, Pro and Enterprise plan users can contact Labellerr support. If you are on a free plan, you can request them by emailing `support@tensormatics.com`.**
+
+Once installed, you can start by importing and initializing the `LabellerrClient` and `LabellerrError`. This client will handle all communication with the Labellerr platform.
+
+### Example Client initiation:
+
+```python
+from labellerr.client import LabellerrClient
+from labellerr.exceptions import LabellerrError
+
+# Initialize the client with your API credentials
+client = LabellerrClient('your_api_key', 'your_api_secret')
+```
+
+Replace `'your_api_key'` and `'your_api_secret'` with your actual API credentials provided by Labellerr.
+
+---
+
+### Creating a New Project
+
+---
+
+A **project** in Labellerr organizes your datasets and their annotations. Use the following method to create a project:
+
+**To know more about what is a project in Labellerr, [click here](https://labellerrknowbase.notion.site/How-to-Create-a-New-project-37bed9e50bc84d848dc997c33eb9955ahttps:/) **
+
+#### Limitations:
+
+- Maximum of **2,500 files** per folder.
+- Total folder size should not exceed **2.5 GB**.
+
+#### Acceptable value:
+
+* **option_type**
+  * `'input'`, `'radio'`, `'boolean'`, `'select'`, `'dropdown'`, `'stt'`, `'imc'`, `'BoundingBox'`, `'polygon'`, `'dot'`, `'audio'`
+
+#### Data Types and Supported Formats
 
 The Labellerr SDK supports various data types and file formats for your annotation projects:
 
@@ -50,59 +99,6 @@ The Labellerr SDK supports various data types and file formats for your annotati
 | `text`     | Plain text files for text annotation  | `.txt`                                   |
 
 When using the SDK methods, specify the data type as one of: `'image'`, `'video'`, `'audio'`, `'document'`, or `'text'`.
-
-#### Example Usage with Data Types:
-
-```python
-# When creating a dataset
-payload = {
-    'client_id': '12345',
-    'dataset_name': 'Image Dataset',
-    'data_type': 'image',  # Specify the data type here
-    # ... other configuration options
-}
-
-# When retrieving datasets
-result = client.get_all_dataset(client_id='12345', data_type='image')
-```
-
-**Note**: Ensure your files match the supported extensions for the specified data type to avoid upload errors.
-
----
-
-## Getting Started
-
-Once installed, you can start by importing and initializing the `LabellerrClient`. This client will handle all communication with the Labellerr platform.
-
-### Example:
-
-```python
-from labellerr.client import LabellerrClient
-from labellerr.exceptions import LabellerrError
-
-# Initialize the client with your API credentials
-client = LabellerrClient('your_api_key', 'your_api_secret')
-```
-
-Replace `'your_api_key'` and `'your_api_secret'` with your actual API credentials provided by Labellerr.
-
----
-
-## Key Features
-
-### Creating a New Project
-
-A **project** in Labellerr organizes your datasets and their annotations. Use the following method to create a project:
-
-#### Limitations:
-
-- Maximum of **2,500 files** per folder.
-- Total folder size should not exceed **2.5 GB**.
-
-#### Acceptable value:
-
-* **option_type**
-  * `'input'`, `'radio'`, `'boolean'`, `'select'`, `'dropdown'`, `'stt'`, `'imc'`, `'BoundingBox'`, `'polygon'`, `'dot'`, `'audio'`
 
 #### Example Usage:
 
@@ -152,9 +148,11 @@ except LabellerrError as e:
     print(f"Project creation failed: {str(e)}")
 ```
 
-### Uploading Pre-annotations
+---
 
-Pre-annotations help predefine labels for your dataset, speeding up the annotation process. The SDK provides both synchronous and asynchronous methods for uploading pre-annotations.
+## Uploading Pre-annotations
+
+**Pre-annotations are labels which can be pre-loaded to a project which can speed up manual annotation**
 
 #### Example Usage (Synchronous):
 
@@ -248,7 +246,11 @@ Both methods will:
 
 ### Local Export
 
+---
+
 The SDK provides functionality to export project data locally. This feature allows you to export annotations in various formats for further analysis or backup purposes.
+
+**The export created will be available in the exports section of Labellerr dashboard. To know more where you can find the export, [click here](https://labellerrknowbase.notion.site/How-to-create-an-Export-on-Labellerr-4ebeac49c29d44e8a294c5ab694267e8https:/)**
 
 #### Acceptable values:
 
@@ -289,6 +291,8 @@ except LabellerrError as e:
 ---
 
 ### Retrieving All Projects for a Client
+
+---
 
 You can retrieve all projects associated with a specific client ID using the following method:
 
@@ -331,6 +335,8 @@ The response includes detailed information about each project, including its ID,
 ---
 
 ### Retrieving All Datasets
+
+---
 
 You can retrieve both linked and unlinked datasets associated with a client using the following method:
 
