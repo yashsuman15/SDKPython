@@ -71,7 +71,7 @@ Replace `'your_api_key'` and `'your_api_secret'` with your actual API credential
 
 A **project** in Labellerr organizes your datasets and their annotations. Use the following method to create a project:
 
-**To know more about what is a project in Labellerr, [click here](https://labellerrknowbase.notion.site/How-to-Create-a-New-project-37bed9e50bc84d848dc997c33eb9955ahttps:/) **
+To know more about what is a project in Labellerr, [click here](https://labellerrknowbase.notion.site/How-to-Create-a-New-project-37bed9e50bc84d848dc997c33eb9955ahttps:/)
 
 #### Limitations:
 
