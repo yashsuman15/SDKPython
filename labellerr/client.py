@@ -1,20 +1,18 @@
 # labellerr/client.py
 
-from concurrent import futures
 import requests
 import uuid
 from .exceptions import LabellerrError
-from unique_names_generator import get_random_name
-from unique_names_generator.data import ADJECTIVES, NAMES, ANIMALS
-import random
 import json
 import logging 
-from datetime import datetime 
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
-from multiprocessing import cpu_count
+from . import constants
+from . import gcs
+from . import utils
 import concurrent.futures
+from multiprocessing import cpu_count
 
 FILE_BATCH_SIZE=15 * 1024 * 1024
 FILE_BATCH_COUNT=900
@@ -55,10 +53,87 @@ class LabellerrClient:
         """
         self.api_key = api_key
         self.api_secret = api_secret
-        # self.base_url = "https://api-gateway-qcb3iv2gaa-uc.a.run.app" #--dev
-        self.base_url = "https://api.labellerr.com" #--prod
+        self.base_url = "https://api.labellerr.com"
 
-    def get_dataset(self, workspace_id, dataset_id, project_id):
+    def connect_local_files(self, client_id, file_names, connection_id=None):
+        """
+        Connects local files to the API.
+
+        :param client_id: The ID of the client.
+        :param file_names: The list of file names.
+        :return: The response from the API.
+        """
+        url = f"{constants.BASE_URL}/connectors/connect/local?client_id={client_id}"
+        headers = {
+            'client_id': client_id,
+            'api_key': self.api_key,
+            'api_secret': self.api_secret,
+            'source':'sdk',
+            'origin': 'https://pro.labellerr.com'
+        }
+        body = {
+            'file_names': file_names
+        }
+        if connection_id is not None:
+            body['temporary_connection_id'] = connection_id
+        response = requests.post(url, headers=headers, json=body)
+        if response.status_code != 200:
+            raise LabellerrError("Internal server error. Please contact support.")
+        return response.json()
+
+    def __process_batch(self, client_id, files_list, connection_id=None):
+        """
+        Processes a batch of files.
+        """
+        # Prepare files for upload
+        files = {}
+        for file_path in files_list:
+            file_name = os.path.basename(file_path)
+            files[file_name] = file_path
+        response = self.connect_local_files(client_id, list(files.keys()), connection_id)
+        resumable_upload_links = response['response']['resumable_upload_links']
+        for file_name in resumable_upload_links.keys():
+            gcs.upload_to_gcs_resumable(resumable_upload_links[file_name], files[file_name])
+        
+        return response
+    
+    
+    def upload_files(self, client_id, files_list):
+        """
+        Uploads files to the API.
+
+        :param client_id: The ID of the client.
+        :param dataset_id: The ID of the dataset.
+        :param data_type: The type of data.
+        :param files_list: The list of files to upload or a comma-separated string of file paths.
+        :return: The response from the API.
+        :raises LabellerrError: If the upload fails.
+        """
+        try:
+            # Convert string input to list if necessary
+            if isinstance(files_list, str):
+                files_list = files_list.split(',')
+            elif not isinstance(files_list, list):
+                raise LabellerrError("files_list must be either a list or a comma-separated string")
+
+            if len(files_list) == 0:
+                raise LabellerrError("No files to upload")
+
+            # Validate files exist
+            for file_path in files_list:
+                if not os.path.exists(file_path):
+                    raise LabellerrError(f"File does not exist: {file_path}")
+                if not os.path.isfile(file_path):
+                    raise LabellerrError(f"Path is not a file: {file_path}")
+
+            response = self.__process_batch(client_id, files_list)
+            connection_id = response['response']['temporary_connection_id']
+            return connection_id
+
+        except Exception as e:
+            logging.error(f"Failed to upload files : {str(e)}")
+            raise LabellerrError(f"Failed to upload files : {str(e)}")
+    def get_dataset(self, workspace_id, dataset_id):
         """
         Retrieves a dataset from the Labellerr API.
 
@@ -67,7 +142,7 @@ class LabellerrClient:
         :param project_id: The ID of the project.
         :return: The dataset as JSON.
         """
-        url = f"{self.base_url}?client_id={workspace_id}&dataset_id={dataset_id}&project_id={project_id}&uuid={str(uuid.uuid4())}"
+        url = f"{constants.BASE_URL}/datasets/{dataset_id}?client_id={workspace_id}&uuid={str(uuid.uuid4())}"
         headers = {
             'api_key': self.api_key,
             'api_secret': self.api_secret,
@@ -78,74 +153,6 @@ class LabellerrClient:
         if response.status_code != 200:
             raise LabellerrError(f"Error {response.status_code}: {response.text}")
         return response.json()
-
-    
-
-    def create_empty_project(self, client_id, project_name, data_type,created_by, rotation_config=None):
-        """
-        Creates an empty project on the Labellerr API.
-
-        :param client_id: The ID of the client.
-        :param project_name: The name of the project.
-        :param data_type: The type of data for the project.
-        :param rotation_config: The rotation configuration for the project.
-        :return: A dictionary containing the project ID, response status, and project configuration.
-        """
-        try:
-            unique_id = str(uuid.uuid4())
-            url = f"{self.base_url}/projects/create?stage=1&client_id={client_id}&uuid={unique_id}"
-
-            project_id = get_random_name(combo=[NAMES, ADJECTIVES, ANIMALS], separator="_", style="lowercase") + '_' + str(random.randint(10000, 99999))
-
-            payload = json.dumps({
-                "project_id": project_id,
-                "project_name": project_name,
-                "data_type": data_type,
-                "created_by":created_by
-            })
-
-            print(f"Create Empty Project Payload: {payload}")
-
-            headers = {
-                'client_id': str(client_id),
-                'content-type': 'application/json',
-                'api_key':self.api_key,
-                'api_secret': self.api_secret,
-                'source':'sdk',
-                'origin': 'https://dev.labellerr.com'
-            }
-
-            response = requests.request("POST", url, headers=headers, data=payload)
-
-            if response.status_code not in [200, 201]:
-                if response.status_code >= 400 and response.status_code < 500:
-                    raise LabellerrError({'error' :response.json(),'code':response.status_code})
-                elif response.status_code >= 500:
-                    raise LabellerrError({
-                        'status': 'internal server error',
-                        'message': 'Please contact support with the request tracking id',
-                        'request_id': unique_id
-                    })
-
-
-            print("Updating rotation configuration . . .")
-            if rotation_config is None:
-                rotation_config = {
-                    'annotation_rotation_count':1,
-                    'review_rotation_count':1,
-                    'client_review_rotation_count':1
-                }
-
-            self.rotation_config=rotation_config
-            self.project_id=project_id
-            self.client_id=client_id
-                
-            rotation_request_response=self.update_rotation_count()
-            print("Rotation configuration updated successfully.")
-            return {'project_id': project_id, 'response': 'success','project_config':rotation_request_response}
-        except LabellerrError as e:
-            logging.error(f"Failed to create project: {e}")
-            raise
 
     def update_rotation_count(self):
 
@@ -189,52 +196,58 @@ class LabellerrClient:
             logging.error(f"Project rotation update config failed: {e}")
             raise
 
-    def create_dataset(self,dataset_config):
+    def create_dataset(self, dataset_config, files_to_upload=None, folder_to_upload=None):
         """
         Creates an empty dataset.
 
         :param dataset_config: A dictionary containing the configuration for the dataset.
         :return: A dictionary containing the response status and the ID of the created dataset.
         """
+
         try:
-            # dataset_config['data_type'] has to be one of the items from DATA_TYPES
             # Validate data_type
             if dataset_config.get('data_type') not in DATA_TYPES:
                 raise LabellerrError(f"Invalid data_type. Must be one of {DATA_TYPES}")
-            dataset_id=f"dataset-{dataset_config['data_type']}-{uuid.uuid4().hex[:8]}"
 
             unique_id = str(uuid.uuid4())
-            url = f"{self.base_url}/datasets/create?client_id={dataset_config['client_id']}&uuid={unique_id}"
+            url = f"{constants.BASE_URL}/datasets/create?client_id={dataset_config['client_id']}&uuid={unique_id}"
             headers = {
                 'client_id': str(dataset_config['client_id']),
                 'content-type': 'application/json',
                 'api_key': self.api_key,
                 'api_secret': self.api_secret,
                 'source':'sdk',
-                'origin': 'https://dev.labellerr.com'
+                'origin': 'https://pro.labellerr.com'
                 }
-           
+            if files_to_upload is not None:
+                try:
+                    connection_id = self.upload_files(
+                        client_id=dataset_config['client_id'],
+                        files_list=files_to_upload
+                    )
+                except Exception as e:
+                    raise LabellerrError(f"Failed to upload files to dataset: {str(e)}")
+
+            elif folder_to_upload is not None:
+                try:
+                    result = self.upload_folder_files_to_dataset({
+                        'client_id': dataset_config['client_id'],
+                        'folder_path': folder_to_upload,
+                        'data_type': dataset_config['data_type']
+                    })
+                    connection_id = result['connection_id']
+                except Exception as e:
+                    raise LabellerrError(f"Failed to upload folder files to dataset: {str(e)}")
             payload = json.dumps(
                 {
-                    "dataset_id": dataset_id,
                     "dataset_name": dataset_config['dataset_name'],
-                    "dataset_description": dataset_config['dataset_description'],
+                    "dataset_description": dataset_config.get('dataset_description', ''),
                     "data_type": dataset_config['data_type'],
-                    "created_by": dataset_config['created_by'],
-                    "permission_level": "project",
-                    "type": "client",
-                    "labelled": "unlabelled",
-                    "data_copy": "false",
-                    "isGoldDataset": False,
-                    "files_count": 0,
-                    "access": "write",
-                    "created_at": datetime.now().isoformat(),
-                    "id": f"dataset-{dataset_config['data_type']}-{uuid.uuid4().hex[:8]}",
-                    "name": dataset_config['dataset_name'],
-                    "description": dataset_config['dataset_description']
+                    "connection_id": connection_id,
+                    "path": "local",
+                    "client_id": dataset_config['client_id']
                 }
             )
-
             response = requests.request("POST", url, headers=headers, data=payload)
             if response.status_code not in [200, 201]:
                 if response.status_code >= 400 and response.status_code < 500:
@@ -245,7 +258,7 @@ class LabellerrClient:
                         'message': 'Please contact support with the request tracking id',
                         'request_id': unique_id
                     })
-
+            dataset_id = response.json()['response']['dataset_id']
 
             return {'response': 'success','dataset_id':dataset_id}
 
@@ -360,305 +373,6 @@ class LabellerrClient:
 
         return total_file_count, total_file_size, files_list
 
-
-    def upload_folder_files_to_dataset(self, data_config):
-        """
-        Uploads local files from a folder to a dataset using parallel processing.
-
-        :param data_config: A dictionary containing the configuration for the data.
-        :return: A dictionary containing the response status and the list of successfully uploaded files.
-        :raises LabellerrError: If there are issues with file limits, permissions, or upload process
-        """
-        try:
-            # Validate required fields in data_config
-            required_fields = ['data_type', 'dataset_id', 'client_id', 'folder_path']
-            missing_fields = [field for field in required_fields if field not in data_config]
-            if missing_fields:
-                raise LabellerrError(f"Missing required fields in data_config: {', '.join(missing_fields)}")
-
-            # Validate folder path exists and is accessible
-            if not os.path.exists(data_config['folder_path']):
-                raise LabellerrError(f"Folder path does not exist: {data_config['folder_path']}")
-            if not os.path.isdir(data_config['folder_path']):
-                raise LabellerrError(f"Path is not a directory: {data_config['folder_path']}")
-            if not os.access(data_config['folder_path'], os.R_OK):
-                raise LabellerrError(f"No read permission for folder: {data_config['folder_path']}")
-
-            unique_id = str(uuid.uuid4())
-            try:
-                url = f"{self.base_url}/connectors/upload/local?data_type={data_config['data_type']}&dataset_id={data_config['dataset_id']}&project_id=null&project_independent=false&client_id={data_config['client_id']}&uuid={unique_id}"
-                data_config['url'] = url
-            except KeyError as e:
-                raise LabellerrError(f"Missing required field in data_config for URL construction: {str(e)}")
-            
-            success_queue = []
-            fail_queue = []
-
-            try:
-                # Get files from folder
-                total_file_count, total_file_volumn, filenames = self.get_total_folder_file_count_and_total_size(
-                    data_config['folder_path'], 
-                    data_config['data_type']
-                )
-            except Exception as e:
-                raise LabellerrError(f"Failed to analyze folder contents: {str(e)}")
-            
-            # Check file limits
-            if total_file_count > TOTAL_FILES_COUNT_LIMIT_PER_DATASET:
-                raise LabellerrError(f"Total file count: {total_file_count} exceeds limit of {TOTAL_FILES_COUNT_LIMIT_PER_DATASET} files")
-            if total_file_volumn > TOTAL_FILES_SIZE_LIMIT_PER_DATASET:
-                raise LabellerrError(f"Total file size: {total_file_volumn/1024/1024:.1f}MB exceeds limit of {TOTAL_FILES_SIZE_LIMIT_PER_DATASET/1024/1024:.1f}MB")
-
-            print(f"Total file count: {total_file_count}")
-            print(f"Total file size: {total_file_volumn/1024/1024:.1f} MB")
-
-            # Group files into batches based on FILE_BATCH_SIZE
-            batches = []
-            current_batch = []
-            current_batch_size = 0
-
-            for file_path in filenames:
-                try:
-                    file_size = os.path.getsize(file_path)
-                    if current_batch_size + file_size > FILE_BATCH_SIZE or len(current_batch) >= FILE_BATCH_COUNT:
-                        if current_batch:
-                            batches.append(current_batch)
-                        current_batch = [file_path]
-                        current_batch_size = file_size
-                    else:
-                        current_batch.append(file_path)
-                        current_batch_size += file_size
-                except OSError as e:
-                    print(f"Error accessing file {file_path}: {str(e)}")
-                    fail_queue.append(file_path)
-                except Exception as e:
-                    print(f"Unexpected error processing {file_path}: {str(e)}")
-                    fail_queue.append(file_path)
-
-            if current_batch:
-                batches.append(current_batch)
-
-            if not batches:
-                raise LabellerrError("No valid files found to upload in the specified folder")
-
-            print('CPU count', cpu_count(), " Batch Count", len(batches))
-
-            # Calculate optimal number of workers based on CPU count and batch count
-            max_workers = min(
-                cpu_count(),  # Number of CPU cores
-                len(batches),  # Number of batches
-                20
-            )
-
-            # Process batches in parallel
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                future_to_batch = {
-                    executor.submit(self._process_batch, data_config, batch): batch 
-                    for batch in batches
-                }
-
-                for future in as_completed(future_to_batch):
-                    batch = future_to_batch[future]
-                    try:
-                        result = future.result()
-                        if result['success']:
-                            success_queue.extend(batch)
-                        else:
-                            fail_queue.extend(batch)
-                    except Exception as e:
-                        print(f"Batch upload failed: {str(e)}")
-                        fail_queue.extend(batch)
-
-            if not success_queue and fail_queue:
-                raise LabellerrError("All file uploads failed. Check individual file errors above.")
-
-            return {
-                'track_id': unique_id,
-                'success': success_queue,
-                'fail': fail_queue
-            }
-        
-        except LabellerrError:
-            raise
-        except Exception as e:
-            raise LabellerrError(f"Failed to upload files: {str(e)}")
-
-    def _process_batch(self, data_config, batch):
-        """
-        Helper method to process a batch of files.
-
-        :param data_config: The data configuration dictionary
-        :param batch: List of file paths to process
-        :return: Dictionary indicating success/failure
-        """
-        files = []
-        try:
-            # Open all files in the batch
-            for file_path in batch:
-                try:
-                    filename = os.path.basename(file_path)
-                    file_obj = open(file_path, 'rb')
-                    files.append(('file', (filename, file_obj, 'application/octet-stream')))
-                except Exception as e:
-                    print(f"Error reading file {file_path}: {str(e)}")
-                    return {'success': False}
-
-            print(f"processing a batch of {len(files)} files . . .")
-            response = self.commence_files_upload(data_config, files)
-            print('----------------------')
-            print("Batch processing done ", response)
-            return {'success': True if response.status_code == 200 else False}
-        except Exception as e:
-            print(f"Batch processing error: {str(e)}")
-            raise LabellerrError(f"Batch processing error: {str(e)}")
-        finally:
-            # Ensure all files are properly closed
-            for _, (_, file_obj, _) in files:
-                try:
-                    file_obj.close()
-                except:
-                    pass
-
-    def commence_files_upload(self,data_config,files_to_send):
-        """
-        Commences the upload of files to the API.
-
-        :param data_config: The dictionary containing the configuration for the data.
-        :param files_to_send: The list of file tuples to send.
-        :return: The response from the API.
-        :raises LabellerrError: If the upload fails.
-        """
-        try:
-            print(f"Uploading {len(files_to_send)} file(s)")
-            # put a delay of 3 secs
-            time.sleep(3)
-            headers = {
-                    'client_id': data_config['client_id'],
-                    'api_key': self.api_key,
-                    'api_secret': self.api_secret,
-                    'source':'sdk',
-                    'origin': 'https://dev.labellerr.com'
-                }
-
-            response = requests.post(
-                data_config['url'], 
-                headers=headers, 
-                data={}, 
-                files=files_to_send
-            )
-            
-            if response.status_code not in [200, 201]:
-                if response.status_code >= 400 and response.status_code < 500:
-                    raise LabellerrError({'error' :response.json(),'code':response.status_code})
-                elif response.status_code >= 500:
-                    raise LabellerrError({
-                        'status': 'internal server error',
-                        'message': 'Please contact support with the request tracking id',
-                        'request_id': unique_id
-                    })
-            return response
-        except requests.exceptions.RequestException as e:
-            raise LabellerrError(f"Request failed: {str(e)}")
-        except Exception as e:
-            raise LabellerrError(f"An error occurred during file upload: {str(e)}")
-
-    def upload_files(self,client_id,dataset_id,data_type,files_list):
-        """
-        Uploads files to the API.
-
-        :param client_id: The ID of the client.
-        :param dataset_id: The ID of the dataset.
-        :param data_type: The type of data.
-        :param files_list: The list of files to upload or a comma-separated string of file paths.
-        :return: The response from the API.
-        :raises LabellerrError: If the upload fails.
-        """
-        try:
-            # Convert string input to list if necessary
-            if isinstance(files_list, str):
-                files_list = files_list.split(',')
-            elif not isinstance(files_list, list):
-                raise LabellerrError("files_list must be either a list or a comma-separated string")
-
-            if len(files_list) == 0:
-                raise LabellerrError("No files to upload")
-
-            # Validate files exist
-            for file_path in files_list:
-                if not os.path.exists(file_path):
-                    raise LabellerrError(f"File does not exist: {file_path}")
-                if not os.path.isfile(file_path):
-                    raise LabellerrError(f"Path is not a file: {file_path}")
-
-            unique_id = str(uuid.uuid4())
-            url = f"{self.base_url}/connectors/upload/local?data_type={data_type}&dataset_id={dataset_id}&project_id=null&project_independent=false&client_id={client_id}&uuid={unique_id}"
-
-            config = {
-                'client_id': client_id,
-                'dataset_id': dataset_id,
-                'project_id': 'null',
-                'data_type': data_type,
-                'url': url,
-                'project_independent': 'false'
-            }
-
-            # Prepare files for upload
-            files = []
-            try:
-                for file_path in files_list:
-                    file_name = os.path.basename(file_path)
-                    file_obj = open(file_path, 'rb')
-                    files.append(('file', (file_name, file_obj, 'application/octet-stream')))
-                
-                response = self.commence_files_upload(config, files)
-                return response
-            finally:
-                # Ensure all files are closed
-                for _, (_, file_obj, _) in files:
-                    try:
-                        file_obj.close()
-                    except:
-                        pass
-
-        except Exception as e:
-            logging.error(f"Failed to upload files : {str(e)}")
-            raise LabellerrError(f"Failed to upload files : {str(e)}")
-
-    
-
-    def upload_folder_content(self,client_id,dataset_id,data_type,folder_path):
-
-        """
-        Uploads the content of a folder to the API.
-
-        :param client_id: The ID of the client.
-        :param dataset_id: The ID of the dataset.
-        :param data_type: The type of data.
-        :param folder_path: The path to the folder.
-        :return: The response from the API.
-        :raises LabellerrError: If the upload fails.
-        """
-        
-        try:
-            if not os.path.exists(folder_path) or not os.path.isdir(folder_path) or not os.listdir(folder_path):
-                raise LabellerrError("Invalid or empty folder path")
-            
-            config = {
-                'client_id': client_id,
-                'dataset_id': dataset_id,
-                'project_id': 'null',
-                'data_type': data_type,
-                'folder_path': folder_path,
-                'project_independent':'false'
-            }
-
-            response = self.upload_folder_files_to_dataset(config)
-            
-            return response
-        except Exception as e:
-            logging.error(f"Failed to upload folder content: {str(e)}")
-            raise LabellerrError(f"Failed to upload folder content: {str(e)}")
-        
     
         
 
@@ -703,54 +417,8 @@ class LabellerrClient:
             logging.error(f"Failed to retrieve projects: {str(e)}")
             raise LabellerrError(f"Failed to retrieve projects: {str(e)}")
 
-    
-                        
-    def link_dataset_to_project(self, client_id,project_id,dataset_id):
-        """
-        Links a dataset to a project.
 
-        :param client_id: The ID of the client.
-        :param project_id: The ID of the project.
-        :param dataset_id: The ID of the dataset.
-        :return: The response from the API.
-        :raises LabellerrError: If the linking fails.
-        """
-        try:
-            unique_id = str(uuid.uuid4())
-            url = f"{self.base_url}/datasets/project/link?client_id={client_id}&dataset_id={dataset_id}&project_id={project_id}&uuid={unique_id}"
-
-            payload = {}
-            
-            headers = {
-                'client_id': str(client_id),
-                'content-type': 'application/json',
-                'api_key': self.api_key,
-                'api_secret': self.api_secret,
-                'source':'sdk',
-                'origin': 'https://dev.labellerr.com'
-            }            
-
-            response = requests.request("GET", url, headers=headers, data=payload)
-
-            if response.status_code not in [200, 201]:
-                if response.status_code >= 400 and response.status_code < 500:
-                    raise LabellerrError({'error' :response.json(),'code':response.status_code})
-                elif response.status_code >= 500:
-                    raise LabellerrError({
-                        'status': 'internal server error',
-                        'message': 'Please contact support with the request tracking id',
-                        'request_id': unique_id
-                    })
-            response=response.json()
-            return response
-        except Exception as e:
-            logging.error(f"Failed to link the data with the projects :{str(e)}")
-            raise LabellerrError(f"Failed to link the data with the projects : {str(e)}")
-    
-
-
-
-    def update_project_annotation_guideline(self,config):
+    def create_annotation_guideline(self, client_id, questions, template_name, data_type):
 
         """
         Updates the annotation guideline for a project.
@@ -761,20 +429,22 @@ class LabellerrClient:
         """
         unique_id = str(uuid.uuid4())
 
-        url = f"{self.base_url}/annotations/add_questions?project_id={config['project_id']}&auto_label={config['autolabel']}&data_type={config['data_type']}&client_id={config['client_id']}&uuid={unique_id}"
+        url = f"{constants.BASE_URL}/annotations/create_template?data_type={data_type}&client_id={client_id}&uuid={unique_id}"
 
-        guide_payload = json.dumps(config['annotation_guideline'])
+        guide_payload = json.dumps({
+            "templateName": template_name,
+            "questions": questions
+        })
         
         headers = {
-            'client_id': str(config['client_id']),
+            'client_id': str(client_id),
             'content-type': 'application/json',
             'api_key': self.api_key,
             'api_secret': self.api_secret,
             'source':'sdk',
-            'origin': 'https://dev.labellerr.com'
+            'origin': 'https://pro.labellerr.com'
         }    
 
-        # print('annotation_guide -- ', guide_payload)
         try:
             response = requests.request("POST", url, headers=headers, data=guide_payload)
             
@@ -787,7 +457,8 @@ class LabellerrClient:
                         'message': 'Please contact support with the request tracking id',
                         'request_id': unique_id
                     })
-            return response.json()
+            rjson = response.json()
+            return rjson['response']['template_id']
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to update project annotation guideline: {str(e)}")
             raise LabellerrError(f"Failed to update project annotation guideline: {str(e)}")
@@ -1142,7 +813,35 @@ class LabellerrClient:
             logging.error(f"Failed to create local export: {str(e)}")
             raise LabellerrError(f"Failed to create local export: {str(e)}")
 
-    def initiate_create_project(self,payload):
+    def create_project(self, project_name, data_type, client_id, dataset_id, annotation_template_id, rotation_config):
+        """
+        Creates a project.
+
+        :param project_name: The name of the project.
+        :param data_type: The type of data.
+        :param client_id: The ID of the client.
+        :param created_by: The ID of the user who created the project.
+        :param rotation_config: The rotation configuration for the project.
+        :return: A dictionary containing the dataset ID, project ID, and project configuration.
+        """
+        url = f"{constants.BASE_URL}/projects/create?client_id={client_id}"
+        payload = json.dumps({
+            "project_name": project_name,
+            "dataset_id": dataset_id,
+            "data_type": data_type,
+            "annotation_template_id": annotation_template_id,
+            "rotations": rotation_config
+        })
+        headers = {
+            'api_key': self.api_key,
+            'api_secret': self.api_secret,
+            'Origin': 'https://pro.labellerr.com',
+            'Content-Type': 'application/json'
+        }
+        response = requests.post(url, headers=headers, data=payload)
+        return response.json()
+
+    def initiate_create_project(self, payload):
 
         # Creating an empty dataset by function call
         """
@@ -1154,8 +853,6 @@ class LabellerrClient:
         
         try:
             result={}
-            # print('Payload  >>> ',payload)
-
             # validate all the parameters
             required_params = ['client_id', 'dataset_name', 'dataset_description', 'data_type', 'created_by', 'project_name','annotation_guide','autolabel']
             for param in required_params:
@@ -1227,90 +924,135 @@ class LabellerrClient:
                     'dataset_name': payload['project_name'],
                     'data_type': payload['data_type'],
                     'dataset_description': payload['dataset_description'],
-                    'created_by': payload['created_by']
-                })
-                print('Dataset created successfully.')
-
+                }, files_to_upload=payload.get('files_to_upload', None), folder_to_upload=payload.get('folder_to_upload', None))
                 dataset_id = response['dataset_id']
-                result['dataset_id'] = dataset_id
+                gd = lambda: self.get_dataset(payload['client_id'], dataset_id)
+                utils.poll(gd, lambda x: x['response']['status_code'] == 300, interval=5, timeout=300)
+                
             except KeyError as e:
                 raise LabellerrError(f"Missing required field in payload: {str(e)}")
             except Exception as e:
                 raise LabellerrError(str(e))
 
-            # now upload local files/folder to dataset
-            if 'files_to_upload' in payload and payload['files_to_upload'] is not None:
-                try:
-                    print("uploading file to a dataset . . .")
-                    data = self.upload_files(
-                        client_id=payload['client_id'],
-                        dataset_id=dataset_id,
-                        data_type=payload['data_type'],
-                        files_list=payload['files_to_upload']
-                    )
-                    result['dataset_files'] = data
-                    print("files uploaded to the dataset successfully.")
-                except Exception as e:
-                    raise LabellerrError(f"Failed to upload files to dataset: {str(e)}")
 
-            elif 'folder_to_upload' in payload and payload['folder_to_upload'] is not None:
-                try:
-                    print("uploading folder to a dataset . . .")
-                    data=self.upload_folder_files_to_dataset({
-                        'client_id': payload['client_id'],
-                        'dataset_id': dataset_id,
-                        'data_type': payload['data_type'],
-                        'folder_path': payload['folder_to_upload']
-                    })
-                    result['dataset_files'] = data
-                except Exception as e:
-                    raise LabellerrError(f"Failed to upload folder files to dataset: {str(e)}")
+            annotation_template_id = self.create_annotation_guideline(payload['client_id'], payload['annotation_guide'], payload['project_name'],payload['data_type'])
+            self.create_project(payload['project_name'], payload['data_type'], payload['client_id'], dataset_id, annotation_template_id, payload['rotation_config'])
 
-            print("Files added to dataset successfully.")
-            # create empty project
-            try:
-                print("creating project . . .")
-                response = self.create_empty_project(payload['client_id'], payload['project_name'], payload['data_type'],payload['created_by'],payload['rotation_config'])
-                project_id = response['project_id']
-                result['project_id'] = project_id
-                result['project_config'] = response['project_config']
-                print("Project created successfully.")
-            except LabellerrError as e:
-                raise LabellerrError(f"Failed to create project: {str(e)}")
-
-            # update the project annotation guideline 
-            # if 'annotation_guide' in payload and 'autolabel' in payload:
-            try:
-                print("updating project annotation guideline . . .")
-                guideline={
-                    "project_id":project_id,
-                    "client_id":payload['client_id'],
-                    "autolabel":payload['autolabel'],
-                    "data_type": payload['data_type'],
-                    "annotation_guideline":payload['annotation_guide']
-                }
-                guideline_update=self.update_project_annotation_guideline(guideline)
-                result['annotation_guide']=guideline_update
-                print('Project annotation guide is updated.')
-            except Exception as e:
-                logging.error(f"Failed to update project annotation guideline: {str(e)}")
-                print(result)
-                raise LabellerrError(f"Failed to update project annotation guideline: {str(e)}")
-        
-
-            # link dataset to project
-            try:
-                print("linking dataset to project . . .")
-                data=self.link_dataset_to_project(payload['client_id'],project_id,dataset_id)
-                result['dataset_project_link'] = data
-                result['response'] = 'success'
-                print("Dataset linked to project successfully.")
-                return result
-            except Exception as e:
-                logging.error(f"Failed to link dataset to project: {str(e)}")
-                print(result)
-                raise LabellerrError(f"Failed to link dataset to project: {str(e)}")
         except Exception as e:
             logging.error(f"Failed to create project: {str(e)}")
-            print(result)
             raise LabellerrError(f"Failed to create project: {str(e)}")
+    def upload_folder_files_to_dataset(self, data_config):
+        """
+        Uploads local files from a folder to a dataset using parallel processing.
+
+        :param data_config: A dictionary containing the configuration for the data.
+        :return: A dictionary containing the response status and the list of successfully uploaded files.
+        :raises LabellerrError: If there are issues with file limits, permissions, or upload process
+        """
+        try:
+            # Validate required fields in data_config
+            required_fields = [ 'client_id', 'folder_path', 'data_type']
+            missing_fields = [field for field in required_fields if field not in data_config]
+            if missing_fields:
+                raise LabellerrError(f"Missing required fields in data_config: {', '.join(missing_fields)}")
+
+            # Validate folder path exists and is accessible
+            if not os.path.exists(data_config['folder_path']):
+                raise LabellerrError(f"Folder path does not exist: {data_config['folder_path']}")
+            if not os.path.isdir(data_config['folder_path']):
+                raise LabellerrError(f"Path is not a directory: {data_config['folder_path']}")
+            if not os.access(data_config['folder_path'], os.R_OK):
+                raise LabellerrError(f"No read permission for folder: {data_config['folder_path']}")
+
+            success_queue = []
+            fail_queue = []
+
+            try:
+                # Get files from folder
+                total_file_count, total_file_volumn, filenames = self.get_total_folder_file_count_and_total_size(
+                    data_config['folder_path'], 
+                    data_config['data_type']
+                )
+            except Exception as e:
+                raise LabellerrError(f"Failed to analyze folder contents: {str(e)}")
+            
+            # Check file limits
+            if total_file_count > TOTAL_FILES_COUNT_LIMIT_PER_DATASET:
+                raise LabellerrError(f"Total file count: {total_file_count} exceeds limit of {TOTAL_FILES_COUNT_LIMIT_PER_DATASET} files")
+            if total_file_volumn > TOTAL_FILES_SIZE_LIMIT_PER_DATASET:
+                raise LabellerrError(f"Total file size: {total_file_volumn/1024/1024:.1f}MB exceeds limit of {TOTAL_FILES_SIZE_LIMIT_PER_DATASET/1024/1024:.1f}MB")
+
+            print(f"Total file count: {total_file_count}")
+            print(f"Total file size: {total_file_volumn/1024/1024:.1f} MB")
+
+            # Group files into batches based on FILE_BATCH_SIZE
+            batches = []
+            current_batch = []
+            current_batch_size = 0
+
+            for file_path in filenames:
+                try:
+                    file_size = os.path.getsize(file_path)
+                    if current_batch_size + file_size > FILE_BATCH_SIZE or len(current_batch) >= FILE_BATCH_COUNT:
+                        if current_batch:
+                            batches.append(current_batch)
+                        current_batch = [file_path]
+                        current_batch_size = file_size
+                    else:
+                        current_batch.append(file_path)
+                        current_batch_size += file_size
+                except OSError as e:
+                    print(f"Error accessing file {file_path}: {str(e)}")
+                    fail_queue.append(file_path)
+                except Exception as e:
+                    print(f"Unexpected error processing {file_path}: {str(e)}")
+                    fail_queue.append(file_path)
+
+            if current_batch:
+                batches.append(current_batch)
+
+            if not batches:
+                raise LabellerrError("No valid files found to upload in the specified folder")
+
+            print('CPU count', cpu_count(), " Batch Count", len(batches))
+
+            # Calculate optimal number of workers based on CPU count and batch count
+            max_workers = min(
+                cpu_count(),  # Number of CPU cores
+                len(batches),  # Number of batches
+                20
+            )
+            connection_id = str(uuid.uuid4())
+            # Process batches in parallel
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_batch = {
+                    executor.submit(self.__process_batch, data_config['client_id'], batch, connection_id): batch 
+                    for batch in batches
+                }
+
+                for future in as_completed(future_to_batch):
+                    batch = future_to_batch[future]
+                    try:
+                        result = future.result()
+                        if result['message'] == '200: Success':
+                            success_queue.extend(batch)
+                        else:
+                            fail_queue.extend(batch)
+                    except Exception as e:
+                        logging.exception(e)
+                        print(f"Batch upload failed: {str(e)}")
+                        fail_queue.extend(batch)
+
+            if not success_queue and fail_queue:
+                raise LabellerrError("All file uploads failed. Check individual file errors above.")
+
+            return {
+                'connection_id': connection_id,
+                'success': success_queue,
+                'fail': fail_queue
+            }
+        
+        except LabellerrError:
+            raise
+        except Exception as e:
+            raise LabellerrError(f"Failed to upload files: {str(e)}")
