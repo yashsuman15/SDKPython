@@ -1,384 +1,256 @@
-import unittest
-from labellerr import client
+import pytest
+import os
+import uuid
+from unittest.mock import patch, MagicMock
 from labellerr.client import LabellerrClient
 from labellerr.exceptions import LabellerrError
-import json
-import uuid
-import threading
-import time
-# RUNNING
-# python -m unittest discover -s tests
 
-# BULDING
-# python setup.py sdist bdist_wheel 
+@pytest.fixture
+def client():
+    """Create a test client with mock credentials"""
+    return LabellerrClient('test_api_key', 'test_api_secret')
 
-class TestLabellerrClient(unittest.TestCase):
-    def setUp(self):
-        # self.client = LabellerrClient('64d61b.90c2cc4de6a8be69d2d32ffaeb', 'baa3d611f7780faf9d263c2857a57fc356a061fbde44e41820f066002a068dfc') #--dev
-        self.client = LabellerrClient('715682.e20efb43c6a2f6bca74d7af9ad', '4e10ee1508e98b262bf096b4dec959ba2cc83903ad7035331446ec5ede96ca2e') #--prod
+@pytest.fixture
+def sample_valid_payload():
+    """Create a sample valid payload for initiate_create_project"""
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    test_image = os.path.join(current_dir, 'test_data', 'test_image.jpg')
     
+    # Create test directory and file if they don't exist
+    os.makedirs(os.path.join(current_dir, 'test_data'), exist_ok=True)
+    if not os.path.exists(test_image):
+        with open(test_image, 'w') as f:
+            f.write('dummy image content')
     
-
-    # def test_create_project(self):
-    #     client_id = '1'
-    #     project_name = 'Test Project2'
-    #     data_type = 'image'
-    #     rotation_config = {
-    #         'annotation_rotation_count': 0,
-    #         'review_rotation_count': 1,
-    #         'client_review_rotation_count': 0
-    #     }
-
-    #     try:
-    #         result = self.client.create_empty_project(
-    #             client_id=client_id,
-    #             project_name=project_name,
-    #             data_type=data_type,
-    #             rotation_config=rotation_config
-    #         )
-
-    #         # verify that the result pattern is like this: {'project_id': 'veronike_loose_raven_39117','response': 'success'}
-    #         self.assertTrue(isinstance(result, dict) and len(result) == 3 and 'project_id' in result and 'response' in result)
-    #         self.assertEqual(result['response'], 'success')
-
-    #         # verify that the project_id is not empty
-    #         self.assertTrue(result['project_id'])
-
-    #         # Log the return value
-    #         print(f"Project create api response: {result}")
-
-            
-    #     except LabellerrError as e:
-    #         print(f"An error occurred: {e}")
-    #         raise  # Re-raise the exception to fail the test
-
-
-
-
-    # def test_create_dataset(self):
-
-    #     payload={
-    #             "client_id":1,
-    #             "dataset_name": 'Sample',
-    #             "dataset_description": 'sample description',
-    #             "data_type": "image",
-    #             "created_by":'angansen@gmail.com',
-    #             "permission_level": "project",
-    #             "type": "client",
-    #             "labelled": "unlabelled",
-    #             "data_copy": "false",
-    #             "isGoldDataset": False,
-    #             "files_count": 0,
-    #             "access": "write"
-    #         }
-        
-    #     try:
-    #         result = self.client.create_dataset(payload)
-    #         self.assertEqual(result['response'], 'success')
-
-    #         # Log the return value
-    #         print(f"Dataset create api response: {result}")
-
-    #     except LabellerrError as e:
-    #         print(f"An error occurred: {e}")
-    #         raise
-
-
-    # def test_initiate_project(self):
-    #     try:
-    #         payload={
-    #             # -----  Create empty dataset object   --------
-    #             # "client_id":'1',
-    #             "client_id":"8482",
-    #             "dataset_name": 'Sample',
-    #             "data_type": "image",
-    #             "created_by":'angansen@gmail.com',
-    #             "dataset_description": 'sample description',
-    #             "autolabel":"false",
-    #             # -----    Local Folder upload to dataset object   --------
-    #             # "folder_to_upload": '/Users/angansen/Documents/labelerr/test_image/female',
-    #             "files_to_upload":['/Users/angansen/Documents/labelerr/test_image/female/6890.jpg', '/Users/angansen/Documents/labelerr/test_image/female/6898.jpg', '/Users/angansen/Documents/labelerr/test_image/female/7416.jpg'],
-    #             # ------ create empty project object   --------
-    #             "project_name":'Test Project2',
-    #             "annotation_guide":[
-    #                                     {
-    #                                         "question_number": 1,
-    #                                         "question": "Test4",
-    #                                         "required": 'false',
-    #                                         "options": [
-    #                                             {
-    #                                                 "option_name": "#4682B4"
-    #                                             }
-    #                                         ],
-    #                                         # "question_id": "533bb0c8-fb2b-4394-a8e1-5042a944802f",
-    #                                         "option_type": "dropdown",
-    #                                         "question_metadata": []
-    #                                     }
-    #                                 ],
-    #             "rotation_config":{
-    #                 'annotation_rotation_count': 0,
-    #                 'review_rotation_count': 1,
-    #                 'client_review_rotation_count': 0
-    #             }
-    #         }
-
-    #         # payload={'client_id': '1', 'dataset_name': 'to_annotate_01_28', 'dataset_description': 'Dataset for image annotation', 'data_type': 'image', 'created_by': 'koushik.sampath@spotai.co', 'project_name': 'to_annotate_01_28', 'annotation_guide': [{'question_number': 1, 'question': 'What is the main object in the image?', 'required': True, 'options': [{'option_name': 'Car'}, {'option_name': 'Building'}, {'option_name': 'Person'}], 'option_type': 'SingleSelect'}], 'rotation_config': {'annotation_rotation_count': 0, 'review_rotation_count': 1, 'client_review_rotation_count': 0}, 'autolabel': False, 'folder_to_upload': '/Users/angansen/Documents/labelerr'}
-
-    #         result = self.client.initiate_create_project(payload)
-    #         self.assertEqual(result['response'], 'success')
-
-    #         # Log the return value
-    #         print(f"Project initiate api response: {result}")
-
-
-    #     except LabellerrError as e:
-    #         print(f"An error occurred: {e}")
-    #         raise
-
-
-
-    # # upload pre annotation file async
-    # def test_preannotation_file_by_project_id_async(self):
-    #     try:
-    #         annotation_file = '/Users/angansen/Documents/labelerr/_annotations_2500_images.json'
-    #         # client_id = '1'
-    #         # project_id='renee_smooth_frog_20413'
-            
-    #         client_id='8482'
-    #         project_id="karine_added_cricket_93735"
-
-    #         annotation_format='coco_json'
-            
-    #         # Start the async operation
-    #         future = self.client.upload_preannotation_by_project_id_async(project_id,client_id,annotation_format,annotation_file)
-            
-    #         # Start the sync operation
-    #         # result = self.client.upload_preannotation_by_project_id(project_id,client_id,annotation_format,annotation_file)
-
-            
-    #         # Optional: wait for completion at the end of test
-    #         try:
-    #             result = future.result(timeout=300)  # 5 minutes timeout
-    #             self.assertTrue('error' not in result)
-    #             self.assertTrue('response' in result)
-    #             self.assertTrue('status' in result['response'])
-    #             self.assertEqual(result['response']['status'], 'completed')
-    #         except Exception as e:
-    #             print(f"Error in future execution: {str(e)}")
-    #             raise
-            
-    #     except Exception as e:
-    #         print(f"An error occurred: {e}")
-    #         raise
-
-
-    # upload pre annotation file sync
-    # def test_preannotation_file_by_project_id(self):
-    #     try:
-    #         annotation_file = '/Users/angansen/Documents/labelerr/_annotations_2500_images.json'
-    #         client_id = '1'
-    #         project_id='renee_smooth_frog_20413'
-    #         annotation_format='coco_json'
-            
-    #         # Start the async operation
-    #         # future = self.client.upload_preannotation_by_project_id_async(project_id,client_id,annotation_format,annotation_file)
-            
-    #         # Start the sync operation
-    #         result = self.client.upload_preannotation_by_project_id(project_id,client_id,annotation_format,annotation_file)
-
-            
-    #         # Optional: wait for completion at the end of test
-    #         try:
-    #             # result = future.result(timeout=300)  # 5 minutes timeout
-    #             self.assertTrue('error' not in result)
-    #             self.assertTrue('response' in result)
-    #             self.assertTrue('status' in result['response'])
-    #             self.assertEqual(result['response']['status'], 'completed')
-    #         except Exception as e:
-    #             print(f"Error in future execution: {str(e)}")
-    #             raise
-            
-    #     except Exception as e:
-    #         print(f"An error occurred: {e}")
-    #         raise
-
-
-    def test_local_export(self):
-            """
-            Test uploading multiple files from a folder to a dataset.
-            /Users/angansen/Documents/labelerr/test_data
-            """
-            # Test configuration
-            # client_id = '1'
-            # project_id='vivien_just_horse_78859'
-
-            project_id = 'corri_brilliant_opossum_71110'
-            client_id = '8482'
-            export_config = {
-                "export_name": "Test Export",
-                "export_description": "Export of all accepted annotations",
-                "export_format": "json",
-                "statuses": ["accepted"]
+    return {
+        'client_id': '12345',
+        'dataset_name': 'Test Dataset',
+        'dataset_description': 'Dataset for testing',
+        'data_type': 'image',
+        'created_by': 'test_user',
+        'project_name': 'Test Project',
+        'autolabel': False,
+        'files_to_upload': [test_image],
+        'annotation_guide': [
+            {
+                'option_type': 'radio',
+                'question': 'Test Question',
+                'options': ['Option 1', 'Option 2']
             }
+        ],
+        'rotation_config': {
+            'annotation_rotation_count': 1,
+            'review_rotation_count': 1,
+            'client_review_rotation_count': 1
+        }
+    }
 
-            result=self.client.create_local_export(project_id,client_id,export_config)
-
-            # result should not have error
-            self.assertTrue('error' not in result)
+class TestInitiateCreateProject:
+    
+    @patch('labellerr.client.LabellerrClient.create_dataset')
+    @patch('labellerr.client.LabellerrClient.get_dataset')
+    @patch('labellerr.client.utils.poll')
+    @patch('labellerr.client.LabellerrClient.create_annotation_guideline')
+    @patch('labellerr.client.LabellerrClient.create_project')
+    def test_successful_project_creation(self, mock_create_project, mock_create_guideline, 
+                                         mock_poll, mock_get_dataset, mock_create_dataset, 
+                                         client, sample_valid_payload):
+        """Test successful project creation flow"""
+        # Configure mocks
+        dataset_id = str(uuid.uuid4())
+        mock_create_dataset.return_value = {'response': 'success', 'dataset_id': dataset_id}
         
-            # Log the validation result
-            print("Validation local upload: SUCCESS", result)
+        mock_get_dataset.return_value = {
+            'response': {'status_code': 300}
+        }
+        
+        mock_poll.return_value = {'response': {'status_code': 300}}
+        
+        template_id = str(uuid.uuid4())
+        mock_create_guideline.return_value = template_id
+        
+        expected_project_response = {
+            'response': 'success',
+            'project_id': str(uuid.uuid4())
+        }
+        mock_create_project.return_value = expected_project_response
+        
+        # Execute
+        result = client.initiate_create_project(sample_valid_payload)
+        
+        # Assert
+        assert result == expected_project_response
+        mock_create_dataset.assert_called_once()
+        mock_poll.assert_called_once()
+        mock_create_guideline.assert_called_once_with(
+            sample_valid_payload['client_id'], 
+            sample_valid_payload['annotation_guide'],
+            sample_valid_payload['project_name'],
+            sample_valid_payload['data_type']
+        )
+        mock_create_project.assert_called_once_with(
+            sample_valid_payload['project_name'],
+            sample_valid_payload['data_type'],
+            sample_valid_payload['client_id'],
+            dataset_id,
+            template_id,
+            sample_valid_payload['rotation_config']
+        )
+    
+    def test_missing_required_parameters(self, client, sample_valid_payload):
+        """Test error handling for missing required parameters"""
+        # Remove required parameters one by one and test
+        required_params = [
+            'client_id', 'dataset_name', 'dataset_description', 'data_type', 
+            'created_by', 'project_name', 'annotation_guide', 'autolabel'
+        ]
+        
+        for param in required_params:
+            invalid_payload = sample_valid_payload.copy()
+            del invalid_payload[param]
+            
+            with pytest.raises(LabellerrError) as exc_info:
+                client.initiate_create_project(invalid_payload)
+            
+            assert f"Required parameter {param} is missing" in str(exc_info.value)
+    
+    def test_invalid_client_id(self, client, sample_valid_payload):
+        """Test error handling for invalid client_id"""
+        invalid_payload = sample_valid_payload.copy()
+        invalid_payload['client_id'] = 123  # Not a string
+        
+        with pytest.raises(LabellerrError) as exc_info:
+            client.initiate_create_project(invalid_payload)
+        
+        assert "client_id must be a string" in str(exc_info.value)
+        
+        # Test empty string
+        invalid_payload['client_id'] = "   "
+        with pytest.raises(LabellerrError) as exc_info:
+            client.initiate_create_project(invalid_payload)
+        
+        assert "client_id must be a string" in str(exc_info.value)
+    
+    def test_invalid_annotation_guide(self, client, sample_valid_payload):
+        """Test error handling for invalid annotation guide"""
+        invalid_payload = sample_valid_payload.copy()
+        
+        # Missing option_type
+        invalid_payload['annotation_guide'] = [{'question': 'Test Question'}]
+        with pytest.raises(LabellerrError) as exc_info:
+            client.initiate_create_project(invalid_payload)
+        
+        assert "option_type is required in annotation_guide" in str(exc_info.value)
+        
+        # Invalid option_type
+        invalid_payload['annotation_guide'] = [{'option_type': 'invalid_type', 'question': 'Test Question'}]
+        with pytest.raises(LabellerrError) as exc_info:
+            client.initiate_create_project(invalid_payload)
+        
+        assert "option_type must be one of" in str(exc_info.value)
+    
+    def test_both_upload_methods_specified(self, client, sample_valid_payload):
+        """Test error when both files_to_upload and folder_to_upload are specified"""
+        invalid_payload = sample_valid_payload.copy()
+        invalid_payload['folder_to_upload'] = '/path/to/folder'
+        
+        with pytest.raises(LabellerrError) as exc_info:
+            client.initiate_create_project(invalid_payload)
+        
+        assert "Folder /path/to/folder does not exist" in str(exc_info.value)
+    
+    def test_no_upload_method_specified(self, client, sample_valid_payload):
+        """Test error when neither files_to_upload nor folder_to_upload are specified"""
+        invalid_payload = sample_valid_payload.copy()
+        del invalid_payload['files_to_upload']
+        
+        with pytest.raises(LabellerrError) as exc_info:
+            client.initiate_create_project(invalid_payload)
+        
+        assert "Either files_to_upload or folder_to_upload must be provided" in str(exc_info.value)
+    
+    def test_empty_files_to_upload(self, client, sample_valid_payload):
+        """Test error handling for empty files_to_upload"""
+        invalid_payload = sample_valid_payload.copy()
+        invalid_payload['files_to_upload'] = []
+        
+        with pytest.raises(LabellerrError) as exc_info:
+            client.initiate_create_project(invalid_payload)
+    
+    def test_invalid_folder_to_upload(self, client, sample_valid_payload):
+        """Test error handling for invalid folder_to_upload"""
+        invalid_payload = sample_valid_payload.copy()
+        del invalid_payload['files_to_upload']
+        invalid_payload['folder_to_upload'] = "   "
+        
+        with pytest.raises(LabellerrError) as exc_info:
+            client.initiate_create_project(invalid_payload)
+        
+        assert "Folder     does not exist" in str(exc_info.value)
+    
+    @patch('labellerr.client.LabellerrClient.create_dataset')
+    def test_create_dataset_error(self, mock_create_dataset, client, sample_valid_payload):
+        """Test error handling when create_dataset fails"""
+        error_message = "Failed to create dataset"
+        mock_create_dataset.side_effect = LabellerrError(error_message)
+        
+        with pytest.raises(LabellerrError) as exc_info:
+            client.initiate_create_project(sample_valid_payload)
+        
+        assert error_message in str(exc_info.value)
+    
+    @patch('labellerr.client.LabellerrClient.create_dataset')
+    @patch('labellerr.client.utils.poll')
+    def test_poll_timeout(self, mock_poll, mock_create_dataset, client, sample_valid_payload):
+        """Test handling when dataset polling times out"""
+        dataset_id = str(uuid.uuid4())
+        mock_create_dataset.return_value = {'response': 'success', 'dataset_id': dataset_id}
+        
+        # Poll returns None when it times out
+        mock_poll.return_value = None
+        
+        with pytest.raises(LabellerrError) as exc_info:
+            client.initiate_create_project(sample_valid_payload)
+    
+    @patch('labellerr.client.LabellerrClient.create_dataset')
+    @patch('labellerr.client.utils.poll')
+    @patch('labellerr.client.LabellerrClient.create_annotation_guideline')
+    def test_create_guideline_error(self, mock_create_guideline, mock_poll, 
+                                   mock_create_dataset, client, sample_valid_payload):
+        """Test error handling when create_annotation_guideline fails"""
+        dataset_id = str(uuid.uuid4())
+        mock_create_dataset.return_value = {'response': 'success', 'dataset_id': dataset_id}
+        mock_poll.return_value = {'response': {'status_code': 300}}
+        
+        error_message = "Failed to create annotation guideline"
+        mock_create_guideline.side_effect = LabellerrError(error_message)
+        
+        with pytest.raises(LabellerrError) as exc_info:
+            client.initiate_create_project(sample_valid_payload)
+        
+        assert error_message in str(exc_info.value)
+    
+    @patch('labellerr.client.LabellerrClient.create_dataset')
+    @patch('labellerr.client.utils.poll')
+    @patch('labellerr.client.LabellerrClient.create_annotation_guideline')
+    @patch('labellerr.client.LabellerrClient.create_project')
+    def test_create_project_error(self, mock_create_project, mock_create_guideline, 
+                                 mock_poll, mock_create_dataset, client, sample_valid_payload):
+        """Test error handling when create_project fails"""
+        dataset_id = str(uuid.uuid4())
+        mock_create_dataset.return_value = {'response': 'success', 'dataset_id': dataset_id}
+        mock_poll.return_value = {'response': {'status_code': 300}}
+        
+        template_id = str(uuid.uuid4())
+        mock_create_guideline.return_value = template_id
+        
+        error_message = "Failed to create project"
+        mock_create_project.side_effect = LabellerrError(error_message)
+        
+        with pytest.raises(LabellerrError) as exc_info:
+            client.initiate_create_project(sample_valid_payload)
+        
+        assert error_message in str(exc_info.value)
 
-
-
-    # def test_folder_upload_dataset(self):
-    #         """
-    #         Test uploading multiple files from a folder to a dataset.
-    #         """
-    #         # Test configuration
-    #         upload_folder = '/Users/angansen/Documents/labelerr/test_image/'  # Create this folder and add some test images
-    #         client_id = '1'
-    #         dataset_id = 'dataset-image-c42bfeab-a111-4c03-a07b-1'
-    #         data_type = 'image'
-    #         result=self.client.upload_folder_content(client_id,dataset_id,data_type,upload_folder)
-
-    #         self.assertTrue('success' in result)
-    #         self.assertTrue('fail' in result)
-    #         self.assertTrue(isinstance(result['success'], list))
-    #         self.assertTrue(isinstance(result['fail'], list))
-           
-    #         # Log the validation result
-    #         print("Validation of folder upload dataset result: SUCCESS")
-
-
-
-
-
-    # def test_files_upload_dataset(self):
-    #     """
-    #     Test uploading multiple files from a folder to a dataset.
-    #     """
-    #     # Test configuration
-    #     files = '/Users/angansen/Documents/labelerr/test_image/female copy 3/shoes copy 5/12890.jpg,/Users/angansen/Documents/labelerr/test_image/female copy 3/shoes copy 5/19866.jpg,/Users/angansen/Documents/labelerr/test_image/female copy 3/shoes copy 5/15721.jpg'  # Create this folder and add some test images
-    #     client_id = '1'
-    #     dataset_id = 'dataset-image-c42bfeab-a111-4c03-a07b-1'
-    #     data_type = 'image'
-    #     try:
-    #         result = self.client.upload_files(client_id,dataset_id,data_type,files)
-    #         self.assertTrue('success' in result)
-    #         self.assertTrue('fail' in result)
-    #         self.assertTrue(isinstance(result['success'], list))
-    #         self.assertTrue(isinstance(result['fail'], list))
-    #         # Log the validation result
-    #         print("Validation of files upload dataset result: SUCCESS")
-
-    #     except LabellerrError as e:
-    #         print(f"An error occurred: {e}")
-    #         raise
-
-
-
-
-
-    # def test_get_all_datasets_by_client_id(self):
-    #     """
-    #     Test retrieving all datasets by a client's ID.
-    #     """
-    #     # Test configuration
-    #     client_id = '1'  # Replace with a valid client ID
-    #     data_type = 'image'  # Retrieve all datasets regardless of data type
-
-    #     try:
-    #         result = self.client.get_all_dataset(client_id, data_type)
-    #         self.assertTrue(result)  # Ensure the result is not empty
-    #         self.assertTrue('linked' in result)
-    #         self.assertTrue('unlinked' in result)
-    #         self.assertTrue(isinstance(result['linked'], list))
-    #         self.assertTrue(isinstance(result['unlinked'], list))
-    #         # Log the validation result
-    #         print("Validation of get all datasets by client ID result: SUCCESS")
-
-    #     except LabellerrError as e:
-    #         print(f"An error occurred: {e}")
-    #         raise
-
-
-
-
-    # def test_get_all_projects_by_client_id(self):
-    #     """
-    #     Test retrieving all datasets by a client's ID.
-    #     """
-    #     # Test configuration
-    #     client_id = '1'  # Replace with a valid client ID
-    #     try:
-    #         result = self.client.get_all_project_per_client_id(client_id)
-    #         self.assertTrue(result)  # Ensure the result is not empty
-    #         self.assertTrue('response' in result)
-    #         self.assertTrue(isinstance(result['response'], list))
-
-    #         # print(result)
-    #         print("Validation of get all Projects by client ID result: SUCCESS")
-
-    #     except LabellerrError as e:
-    #         print(f"An error occurred: {e}")
-    #         raise
-
-
-
-
-    # def test_link_dataset_to_project(self):
-    #     """
-    #     Test test linking project to a dataset.
-    #     """
-    #     # Test configuration
-    #     client_id = '1'  # Replace with a valid client ID
-    #     project_id = 'jeana_extensive_mouse_71114'  # Retrieve all datasets regardless of data type
-    #     dataset_id='dataset-image-c4692c11-818f-40eb-82f5-c'
-    #     try:
-    #         result = self.client.link_dataset_to_project(client_id,project_id,dataset_id )
-    #         self.assertTrue('success' in result or 'error' in result)
-    #         if 'error' in result:
-    #             self.assertTrue('code' in result['error'])
-    #             self.assertTrue('msg' in result['error'])
-    #             print(f"Project linking to a dataset is failed with following msg \"{result['error']['msg']}\" and {result['error']['code']} code")
-    #         else:
-    #             print("Project linking to a dataset is SUCCESS")
-
-    #     except LabellerrError as e:
-    #         print(f"An error occurred: {e}")
-    #         raise
-
-    # def test_get_all_dataset(self):
-    #     """
-    #     Test retrieving all datasets for a client.
-    #     """
-    #     try:
-    #         # Test configuration
-    #         client_id = '8482'
-    #         data_type = 'image'
-    #         scope='project'
-    #         project_id='christye_complex_elephant_96597'
-
-    #         # Call the method
-    #         result = self.client.get_all_dataset(client_id, data_type,project_id,scope)
-
-    #         # Verify the response structure
-    #         self.assertIsInstance(result, dict)
-    #         self.assertIn('linked', result)
-    #         self.assertIn('unlinked', result)
-    #         self.assertIsInstance(result['linked'], list)
-    #         self.assertIsInstance(result['unlinked'], list)
-
-    #         print(result['linked'])
-
-
-    #         # Log success
-    #         print(f"Successfully retrieved {len(result['linked'])} linked and {len(result['unlinked'])} unlinked datasets")
-
-    #     except LabellerrError as e:
-    #         print(f"An error occurred: {e}")
-    #         raise
-
-if __name__ == '__main__':
-    unittest.main()
+if __name__ == "__main__":
+    pytest.main()
