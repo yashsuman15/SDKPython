@@ -936,7 +936,7 @@ class LabellerrClient:
 
 
             annotation_template_id = self.create_annotation_guideline(payload['client_id'], payload['annotation_guide'], payload['project_name'],payload['data_type'])
-            self.create_project(payload['project_name'], payload['data_type'], payload['client_id'], dataset_id, annotation_template_id, payload['rotation_config'])
+            return self.create_project(payload['project_name'], payload['data_type'], payload['client_id'], dataset_id, annotation_template_id, payload['rotation_config'])
 
         except Exception as e:
             logging.error(f"Failed to create project: {str(e)}")
