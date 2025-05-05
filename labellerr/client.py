@@ -540,7 +540,7 @@ class LabellerrClient:
                     raise LabellerrError({
                         'status': 'internal server error',
                         'message': 'Please contact support with the request tracking id',
-                        'request_id': unique_id
+                        'error': response_data
                     })
 
             print('response_data -- ', response_data)
@@ -602,7 +602,10 @@ class LabellerrClient:
                         'source':'sdk',
                         'email_id': self.api_key
                     }, data=payload, files=files)
-                response_data=response.json()
+                try:
+                    response_data=response.json()
+                except Exception as e:
+                    raise LabellerrError(f"Failed to upload preannotation: {response.text}")
                 if response.status_code not in [200, 201]:
                     if response.status_code >= 400 and response.status_code < 500:
                         raise LabellerrError({'error' :response.json(),'code':response.status_code})
@@ -610,9 +613,8 @@ class LabellerrClient:
                         raise LabellerrError({
                             'status': 'internal server error',
                             'message': 'Please contact support with the request tracking id',
-                            'request_id': unique_id
+                            'error': response_data
                         })                
-                print('response_data -- ', response_data)
                 # read job_id from the response
                 job_id = response_data['response']['job_id']
                 self.client_id = client_id
@@ -650,7 +652,7 @@ class LabellerrClient:
                         raise LabellerrError(f"Failed to get preannotation job status: {str(e)}")
                 
             except Exception as e:
-                logging.error(f"Failed to upload preannotation: {str(e)}")
+                logging.exception(f"Failed to upload preannotation: {str(e)}")
                 raise LabellerrError(f"Failed to upload preannotation: {str(e)}")
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
