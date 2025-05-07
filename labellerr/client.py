@@ -55,6 +55,35 @@ class LabellerrClient:
         self.api_secret = api_secret
         self.base_url = "https://api.labellerr.com"
 
+    def get_direct_upload_url(self, file_name, client_id, purpose='pre-annotations'):
+        """
+        Get the direct upload URL for the given file names.
+
+        :param file_names: The list of file names.
+        :param client_id: The ID of the client.
+        :return: The response from the API.
+        """
+        url = f"{constants.BASE_URL}/connectors/direct-upload-url?client_id={client_id}&purpose={purpose}&file_name={file_name}"
+        headers = {
+            'client_id': client_id,
+            'api_key': self.api_key,
+            'api_secret': self.api_secret,
+            'source':'sdk',
+            'origin': 'https://pro.labellerr.com'
+            }
+      
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            tracking_id = str(uuid.uuid4())
+            logging.exception(f"Error getting direct upload url: {response.text}")
+            raise LabellerrError({
+                'status': 'internal server error',
+                'message': 'Please contact support with the request tracking id',
+                'request_id': tracking_id
+            })
+        url = response.json()['response']
+        return url
+    
     def connect_local_files(self, client_id, file_names, connection_id=None):
         """
         Connects local files to the API.
@@ -518,21 +547,44 @@ class LabellerrClient:
             else:
                 raise LabellerrError("File not found")
 
+            # Check if the file extension is .json when annotation_format is coco_json
+            if annotation_format == 'coco_json':
+                file_extension = os.path.splitext(annotation_file)[1].lower()
+                if file_extension != '.json':
+                    raise LabellerrError("For coco_json annotation format, the file must have a .json extension")
+            # get the direct upload url
+            gcs_path = f"{project_id}/{annotation_format}-{file_name}"
+            print ("Uploading your file to Labellerr. Please wait...")
+            direct_upload_url = self.get_direct_upload_url(gcs_path, client_id)
+            # Now let's wait for the file to be uploaded to the gcs
+            gcs.upload_to_gcs_direct(direct_upload_url, annotation_file)
             payload = {}
-            with open(annotation_file, 'rb') as f:
-                files = [
-                    ('file', (file_name, f, 'application/octet-stream'))
-                ]
-                response = requests.request("POST", url, headers={
-                    'client_id': client_id,
-                    'api_key': self.api_key,
-                    'api_secret': self.api_secret,
-                    'origin': 'https://dev.labellerr.com',
-                    'source':'sdk',
-                    'email_id': self.api_key
-                }, data=payload, files=files)
+            # with open(annotation_file, 'rb') as f:
+            #     files = [
+            #         ('file', (file_name, f, 'application/octet-stream'))
+            #     ]
+            #     response = requests.request("POST", url, headers={
+            #         'client_id': client_id,
+            #         'api_key': self.api_key,
+            #         'api_secret': self.api_secret,
+            #         'origin': 'https://dev.labellerr.com',
+            #         'source':'sdk',
+            #         'email_id': self.api_key
+            #     }, data=payload, files=files)
+            url += "&gcs_path=" + gcs_path
+            response = requests.request("POST", url, headers={
+                'client_id': client_id,
+                'api_key': self.api_key,
+                'api_secret': self.api_secret,
+                'origin': 'https://dev.labellerr.com',
+                'source':'sdk',
+                'email_id': self.api_key
+            }, data=payload)
             response_data=response.json()
-
+            try:
+                response_data=response.json()
+            except Exception as e:
+                raise LabellerrError(f"Failed to upload preannotation: {response.text}")
             if response.status_code not in [200, 201]:
                 if response.status_code >= 400 and response.status_code < 500:
                     raise LabellerrError({'error' :response.json(),'code':response.status_code})
@@ -541,9 +593,8 @@ class LabellerrClient:
                         'status': 'internal server error',
                         'message': 'Please contact support with the request tracking id',
                         'error': response_data
-                    })
+                    }) 
 
-            print('response_data -- ', response_data)
             # read job_id from the response
             job_id = response_data['response']['job_id']
             self.client_id = client_id
@@ -589,19 +640,39 @@ class LabellerrClient:
                 else:
                     raise LabellerrError("File not found")
 
+                # Check if the file extension is .json when annotation_format is coco_json
+                if annotation_format == 'coco_json':
+                    file_extension = os.path.splitext(annotation_file)[1].lower()
+                    if file_extension != '.json':
+                        raise LabellerrError("For coco_json annotation format, the file must have a .json extension")
+                # get the direct upload url
+                gcs_path = f"{project_id}/{annotation_format}-{file_name}"
+                print ("Uploading your file to Labellerr. Please wait...")
+                direct_upload_url = self.get_direct_upload_url(gcs_path, client_id)
+                # Now let's wait for the file to be uploaded to the gcs
+                gcs.upload_to_gcs_direct(direct_upload_url, annotation_file)
                 payload = {}
-                with open(annotation_file, 'rb') as f:
-                    files = [
-                        ('file', (file_name, f, 'application/octet-stream'))
-                    ]
-                    response = requests.request("POST", url, headers={
-                        'client_id': client_id,
-                        'api_key': self.api_key,
-                        'api_secret': self.api_secret,
-                        'origin': 'https://dev.labellerr.com',
-                        'source':'sdk',
-                        'email_id': self.api_key
-                    }, data=payload, files=files)
+                # with open(annotation_file, 'rb') as f:
+                #     files = [
+                #         ('file', (file_name, f, 'application/octet-stream'))
+                #     ]
+                #     response = requests.request("POST", url, headers={
+                #         'client_id': client_id,
+                #         'api_key': self.api_key,
+                #         'api_secret': self.api_secret,
+                #         'origin': 'https://dev.labellerr.com',
+                #         'source':'sdk',
+                #         'email_id': self.api_key
+                #     }, data=payload, files=files)
+                url += "&gcs_path=" + gcs_path
+                response = requests.request("POST", url, headers={
+                    'client_id': client_id,
+                    'api_key': self.api_key,
+                    'api_secret': self.api_secret,
+                    'origin': 'https://dev.labellerr.com',
+                    'source':'sdk',
+                    'email_id': self.api_key
+                }, data=payload)
                 try:
                     response_data=response.json()
                 except Exception as e:
@@ -644,7 +715,7 @@ class LabellerrClient:
                         if status_data.get('response', {}).get('status') == 'completed':
                             return status_data
                             
-                        print('retrying after 5 seconds . . .')
+                        print('Syncing status after 5 seconds . . .')
                         time.sleep(5)
                         
                     except Exception as e:
