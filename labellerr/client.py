@@ -886,7 +886,7 @@ class LabellerrClient:
             logging.error(f"Failed to create local export: {str(e)}")
             raise LabellerrError(f"Failed to create local export: {str(e)}")
 
-    def create_project(self, project_name, data_type, client_id, dataset_id, annotation_template_id, rotation_config):
+    def create_project(self, project_name, data_type, client_id, dataset_id, annotation_template_id, rotation_config, created_by=None):
         """
         Creates a project.
 
@@ -903,7 +903,8 @@ class LabellerrClient:
             "dataset_id": dataset_id,
             "data_type": data_type,
             "annotation_template_id": annotation_template_id,
-            "rotations": rotation_config
+            "rotations": rotation_config,
+            "created_by": created_by
         })
         headers = {
             'api_key': self.api_key,
@@ -1009,7 +1010,7 @@ class LabellerrClient:
 
 
             annotation_template_id = self.create_annotation_guideline(payload['client_id'], payload['annotation_guide'], payload['project_name'],payload['data_type'])
-            return self.create_project(payload['project_name'], payload['data_type'], payload['client_id'], dataset_id, annotation_template_id, payload['rotation_config'])
+            return self.create_project(payload['project_name'], payload['data_type'], payload['client_id'], dataset_id, annotation_template_id, payload['rotation_config'], created_by=payload['created_by'])
 
         except Exception as e:
             logging.error(f"Failed to create project: {str(e)}")
