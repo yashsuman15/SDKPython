@@ -107,7 +107,7 @@ class LabellerrClient:
             body['temporary_connection_id'] = connection_id
         response = requests.post(url, headers=headers, json=body)
         if response.status_code != 200:
-            raise LabellerrError("Internal server error. Please contact support.")
+            raise LabellerrError("Internal server error. Please contact support. : " + response.text)
         return response.json()
 
     def __process_batch(self, client_id, files_list, connection_id=None):
@@ -1004,17 +1004,48 @@ class LabellerrClient:
                 utils.poll(gd, lambda x: x['response']['status_code'] == 300, interval=5, timeout=300)
                 
             except KeyError as e:
-                raise LabellerrError(f"Missing required field in payload: {str(e)}")
+                # Preserve the original traceback while providing context
+                raise LabellerrError(f"Missing required field in payload: {str(e)}") from e
             except Exception as e:
-                raise LabellerrError(str(e))
+                # Log the original exception with traceback but preserve it in the raised exception
+                logging.exception("Failed to create dataset during project creation")
+                raise LabellerrError(f"Failed to create dataset: {str(e)}") from e
 
+            try:
+                annotation_template_id = self.create_annotation_guideline(
+                    payload['client_id'], 
+                    payload['annotation_guide'], 
+                    payload['project_name'],
+                    payload['data_type']
+                )
+            except Exception as e:
+                # Log the original exception with traceback but preserve it in the raised exception
+                logging.exception("Failed to create annotation guideline during project creation")
+                raise LabellerrError(f"Failed to create annotation guideline: {str(e)}") from e
+                
+            try:
+                return self.create_project(
+                    payload['project_name'], 
+                    payload['data_type'], 
+                    payload['client_id'], 
+                    dataset_id, 
+                    annotation_template_id, 
+                    payload['rotation_config'], 
+                    created_by=payload['created_by']
+                )
+            except Exception as e:
+                # Log the original exception with traceback but preserve it in the raised exception
+                logging.exception("Failed to create project after dataset and annotation template creation")
+                raise LabellerrError(f"Failed to create project: {str(e)}") from e
 
-            annotation_template_id = self.create_annotation_guideline(payload['client_id'], payload['annotation_guide'], payload['project_name'],payload['data_type'])
-            return self.create_project(payload['project_name'], payload['data_type'], payload['client_id'], dataset_id, annotation_template_id, payload['rotation_config'], created_by=payload['created_by'])
-
+        except LabellerrError:
+            # Re-raise LabellerrError directly to preserve its context
+            raise
         except Exception as e:
-            logging.error(f"Failed to create project: {str(e)}")
-            raise LabellerrError(f"Failed to create project: {str(e)}")
+            # For other exceptions, wrap with more context but preserve the original
+            logging.exception("Unexpected error in initiate_create_project")
+            raise LabellerrError(f"Failed to create project due to unexpected error: {str(e)}") from e
+
     def upload_folder_files_to_dataset(self, data_config):
         """
         Uploads local files from a folder to a dataset using parallel processing.
@@ -1126,7 +1157,7 @@ class LabellerrClient:
                 'fail': fail_queue
             }
         
-        except LabellerrError:
-            raise
+        except LabellerrError as e:
+            raise e
         except Exception as e:
             raise LabellerrError(f"Failed to upload files: {str(e)}")
