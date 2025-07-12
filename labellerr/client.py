@@ -1,5 +1,5 @@
 # labellerr/client.py
-
+import re
 import requests
 import uuid
 from .exceptions import LabellerrError
@@ -1038,11 +1038,16 @@ class LabellerrClient:
             result = {}
             # validate all the parameters
             required_params = ['client_id', 'dataset_name', 'dataset_description', 'data_type', 'created_by', 'project_name','autolabel']
+            required_params = ['client_id', 'dataset_name', 'dataset_description', 'data_type', 'created_by', 'project_name','autolabel']
             for param in required_params:
                 if param not in payload:
                     raise LabellerrError(f"Required parameter {param} is missing")
                 if param == 'client_id' and not isinstance(payload[param], str):
                     raise LabellerrError("client_id must be a non-empty string")
+
+            email = payload.get("created_by")
+            if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email or ""):
+                raise LabellerrError("Please enter email id in created_by")
 
             # annotation_guide is only required if annotation_template_id is not provided
             if not payload.get('annotation_template_id'):
@@ -1054,7 +1059,7 @@ class LabellerrClient:
                     if guide['option_type'] not in OPTION_TYPE_LIST:
                         raise LabellerrError(f"option_type must be one of {OPTION_TYPE_LIST}")
             
-            
+
             if 'folder_to_upload' in payload and 'files_to_upload' in payload:
                 raise LabellerrError("Cannot provide both files_to_upload and folder_to_upload")
             
