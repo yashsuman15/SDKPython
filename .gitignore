@@ -4,5 +4,11 @@ build/
 dist/
 *.egg-info/
 *.pyc
+*/*.pyc
+.idea
+.env
+.DS_Store
+.claude
+tests/test_data
                 if file == '.DS_Store':
                     continue
