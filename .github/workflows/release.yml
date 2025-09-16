@@ -1,11 +1,7 @@
 name: Release
 
 on:
-  pull_request:
   push:
-    branches:
-      - main
-      - develop
     tags:
       - 'v*.*.*'
   workflow_dispatch:
