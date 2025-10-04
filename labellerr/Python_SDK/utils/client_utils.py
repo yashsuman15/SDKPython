@@ -1,6 +1,7 @@
 from ...client import LabellerrClient
 from ...exceptions import LabellerrError
 from ... import constants
+from ...base.singleton import Singleton  # Import your Singleton class
 import uuid
 import os
 import subprocess
@@ -8,11 +9,23 @@ import requests
 import pprint
 
 
-# https://api.labellerr.com/data/file_data?file_id=c44f38f6-0186-436f-8c2d-ffb50a539c76&include_answers=false&project_id=gabrila_artificial_duck_74237&uuid=1d4c9b58-c6a4-4ca8-9583-b6b6cd25ef12
-
-
-class FileMetadataService:
-    def __init__(self, client: LabellerrClient):
+class FileMetadataService(Singleton):
+    
+    def __init__(self, client: LabellerrClient = None):
+        # Prevent re-initialization of singleton
+        if hasattr(self, '_initialized'):
+            return
+            
+        if client is None:
+            raise ValueError("Client must be provided on first initialization")
+        
+        self.client = client
+        self._initialized = True
+    
+    def set_client(self, client: LabellerrClient):
+        """
+        Update the client instance (useful for reconfiguration).
+        """
         self.client = client
         
     def get_file_metadata(self, client_id: str, file_id: str, project_id: str, include_answers: bool = False):
@@ -32,7 +45,6 @@ class FileMetadataService:
             }
             
             url = f"{constants.BASE_URL}/data/file_data"
-            
             
             headers = self.client._build_headers(
                 client_id=client_id,
@@ -173,52 +185,79 @@ class FileMetadataService:
             raise LabellerrError(f"Failed to download video frames: {str(e)}")
 
 
-
-class JoinVideoFrames:
-    def __init__(self, frames_folder, output_file="output.mp4", framerate=30):
+class JoinVideoFrames(Singleton):
+    
+    def __init__(self, frames_folder=None, output_file="output.mp4", framerate=30):
         """
-        Initialize the JoinFrames class.
+        Initialize the JoinVideoFrames class.
 
         :param frames_folder: Path to folder containing sequential frames (e.g., 1.jpg, 2.jpg).
         :param output_file: Name of the output video file.
         :param framerate: Desired video framerate (default: 30 fps).
         """
+        # Prevent re-initialization of singleton
+        if hasattr(self, '_initialized'):
+            return
+            
         self.frames_folder = frames_folder
         self.output_file = output_file
         self.framerate = framerate
+        self._initialized = True
+    
+    def configure(self, frames_folder=None, output_file=None, framerate=None):
+        """
+        Reconfigure the singleton instance parameters.
+        """
+        if frames_folder is not None:
+            self.frames_folder = frames_folder
+        if output_file is not None:
+            self.output_file = output_file
+        if framerate is not None:
+            self.framerate = framerate
 
-    def join(self, pattern="%d.jpg"):
+    def join(self, pattern="%d.jpg", frames_folder=None, output_file=None, framerate=None):
         """
         Join frames into a video using ffmpeg.
 
         :param pattern: Pattern for sequential frames inside frames_folder 
-                        (default: frame%03d.jpg → frame001.jpg, frame002.jpg, ...).
+                        (default: %d.jpg → 1.jpg, 2.jpg, ...).
+        :param frames_folder: Override frames folder for this operation
+        :param output_file: Override output file for this operation
+        :param framerate: Override framerate for this operation
         """
-        input_pattern = os.path.join(self.frames_folder, pattern)
+        # Use provided parameters or fall back to instance attributes
+        folder = frames_folder or self.frames_folder
+        output = output_file or self.output_file
+        fps = framerate or self.framerate
+        
+        if folder is None:
+            raise ValueError("frames_folder must be provided either during initialization or when calling join()")
+        
+        input_pattern = os.path.join(folder, pattern)
 
         # FFmpeg command
         command = [
             "ffmpeg",
             "-y",  # Overwrite output file if exists
-            "-framerate", str(self.framerate),
+            "-framerate", str(fps),
             "-i", input_pattern,
             "-c:v", "libx264",
             "-pix_fmt", "yuv420p",
-            self.output_file
+            output
         ]
 
         try:
             print("Running command:", " ".join(command))
             subprocess.run(command, check=True)
-            print(f"Video saved as {self.output_file}")
+            print(f"Video saved as {output}")
         except subprocess.CalledProcessError as e:
             print("Error while joining frames:", e)
     
     
 if __name__ == "__main__":
     
-    api_key = ""
-    api_secret = ""
+    api_key = "66f4d8.9f402742f58a89568f5bcc0f86"
+    api_secret = "1e2478b930d4a842a526beb585e60d2a9ee6a6f1e3aa89cb3c8ead751f418215"
     client_id = "14078"
     dataset_id = "16257fd6-b91b-4d00-a680-9ece9f3f241c"
     project_id = "gabrila_artificial_duck_74237"
@@ -226,56 +265,9 @@ if __name__ == "__main__":
     
     client = LabellerrClient(api_key=api_key, api_secret=api_secret)
     
+    # First initialization - creates the singleton instance
     file_service = FileMetadataService(client)
     
-    
-    # try:
-    #     metadata = file_service.get_file_metadata(
-    #         client_id, 
-    #         file_id, 
-    #         project_id, 
-    #         include_answers=False)
-    #     # pprint.pprint(metadata)
-        
-    #     total_frames = metadata['file_metadata']['total_frames']
-    #     print(total_frames)
-    # except LabellerrError as e:
-    #     print("Error:", e)
-    
-    # try:
-    #     frames_data = file_service.get_video_frames(
-    #         client_id=client_id,
-    #         file_id=file_id,
-    #         project_id=project_id,
-    #         dataset_id=dataset_id,
-    #         frame_start=0,
-    #         frame_end=total_frames
-    #     )
-        
-    #     print(len(frames_data.keys()))
-    #     pprint.pprint(frames_data)
-    # except LabellerrError as e:
-    #     print("Error:", e)
-        
-    # try:
-    #     download_result = file_service.download_video_frames(
-    #     frames_data=frames_data,
-    #     output_folder="labellerr\download",  # Optional: specify base folder
-    #     file_id=file_id  # Will create folder named with file_id
-    # )  
-    #     # pprint.pprint(frames_data)
-    # except LabellerrError as e:
-    #     print("Error:", e)
-    
-    # frames = r"D:\professional\LABELLERR\Task\Repos\SDKPython\labellerr\download\c44f38f6-0186-436f-8c2d-ffb50a539c76"
-    # try:
-    #     JoinVideoFrames(frames, 
-    #                     output_file="labellerr/download/resultjoinvideo.mp4", 
-    #                     framerate=30).join()
-        
-    # except LabellerrError as e:
-    #     print("Error:", e)
-
-    
+    print(file_service.get_file_metadata(client_id, file_id, project_id))
     
     
