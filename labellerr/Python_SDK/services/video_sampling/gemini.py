@@ -229,26 +229,28 @@ class GeminiSceneDetect:
         print(f"JSON mapping saved to: {json_path}")
 
 
-# if __name__ == "__main__":
-#     # Example usage - Local video file (must be < 10MB)
-#     video_path = r"D:\professional\LABELLERR\Task\Repos\SDKPython\labellerr\Python_SDK\services\video_sampling\video2.mp4"
-#     cred_json_path = r"D:\professional\LABELLERR\Task\Repos\SDKPython\labellerr\Python_SDK\services\video_sampling\yash-suman-prod.json"
+if __name__ == "__main__":
+    # Example usage - Local video file (must be < 10MB)
+    video_path = r"D:\professional\LABELLERR\Task\Repos\SDKPython\labellerr\Python_SDK\services\video_sampling\video2.mp4"
+    cred_json_path = r"D:\professional\LABELLERR\Task\Repos\SDKPython\labellerr\Python_SDK\services\video_sampling\yash-suman-prod.json"
     
-#     # ----------------------------------------------
-#     # Option 1: Process local video file (< 10MB)
-#     # ----------------------------------------------
+    # ----------------------------------------------
+    # Option 1: Process local video file (< 10MB)
+    # ----------------------------------------------
     
-#     detector = GeminiSceneDetect(
-#         video_path=video_path,
-#         file_id="video_001",
-#         credentials_path=cred_json_path  # Uses GOOGLE_APPLICATION_CREDENTIALS env var
-#     )
+    detector = GeminiSceneDetect(
+        credentials_path=cred_json_path  # Uses GOOGLE_APPLICATION_CREDENTIALS env var
+    )
+    labellerr_file = LabellerrFile(
+        file_id="video_001"
+    )
+    detector.detect_and_extract()
     
-#     # Detect and extract frames
-#     try:
-#         result = detector.detect_and_extract()
-#         print(f"\nDetection complete!")
-#         print(f"Total frames extracted: {len(result.selected_frames)}")
-#         print(f"Output folder: {result.output_folder}")
-#     except Exception as e:
-#         print(f"Error: {e}")
+    # Detect and extract frames
+    try:
+        result = detector.detect_and_extract()
+        print(f"\nDetection complete!")
+        print(f"Total frames extracted: {len(result.selected_frames)}")
+        print(f"Output folder: {result.output_folder}")
+    except Exception as e:
+        print(f"Error: {e}")
