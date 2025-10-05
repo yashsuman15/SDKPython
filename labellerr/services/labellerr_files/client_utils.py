@@ -270,4 +270,14 @@ if __name__ == "__main__":
     
     print(file_service.get_file_metadata(client_id, file_id, project_id))
     
+class ImageFileService(FileMetadataService):
+    pass
+
+class VideoFileService(FileMetadataService):
     
+    def download_video_frames(self, client_id: str, file_id: str, project_id: str):
+        pass
+    def get_video_frames(self, client_id: str, file_id: str, project_id: str):
+        pass
+    def create_video_from_frames(self, client_id: str, file_id: str, project_id: str):
+        pass
