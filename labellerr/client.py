@@ -1335,3 +1335,30 @@ class LabellerrClient:
             raise e
         except Exception as e:
             raise LabellerrError(f"Failed to upload files: {str(e)}")
+        
+    def make_api_request(self, client_id, url, params=None, unique_id=None):
+        """
+        Make an API request using the client's session and response handling.
+        
+        Args:
+            client_id: Client identifier for authentication
+            url: The endpoint URL to make the request to
+            params: Optional query parameters for the request
+            unique_id: Optional unique identifier for request tracking
+        
+        Returns:
+            The processed response from the API
+        """
+        headers = self._build_headers(
+            client_id=client_id,
+            extra_headers={
+                "Content-Type": "application/json",
+                "Origin": constants.ALLOWED_ORIGINS 
+            }
+        )
+        
+        # Make request using client's session if available
+        response = self._make_request("GET", url, headers=headers, params=params)
+        
+        # Use client's response handler
+        return self._handle_response(response, request_id=unique_id)

@@ -2,57 +2,50 @@ import os
 from scenedetect import detect, AdaptiveDetector
 from PIL import Image
 import cv2
-from dataclasses import dataclass, asdict
+from pydantic import BaseModel, Field
 from typing import List
 import json
+from labellerr.base.singleton import Singleton
 
 
-@dataclass
-class SceneFrame:
+class SceneFrame(BaseModel):
     """Represents a detected scene with its extracted frame."""
     frame_path: str
     frame_no: int
     
 
-@dataclass
-class DetectionResult:
+class DetectionResult(BaseModel):
     """Contains all detection results for a video."""
     file_id: str
     output_folder: str
     total_frames: int
-    selected_frames: List[SceneFrame]
+    selected_frames: List[SceneFrame] = Field(default_factory=list)
     
 
-class PySceneDetect:
-    """Scene detection and frame extraction for videos."""
+class PySceneDetect(Singleton):
+    """Scene detection and frame extraction for videos (Singleton)."""
     
-    def __init__(self, video_path: str, file_id: str):
+    def detect_and_extract(self, video_path: str, file_id: str) -> DetectionResult:
         """
-        Initialize the scene detector.
+        Detect scenes and extract representative frames.
         
         Args:
             video_path: Path to the video file
             file_id: Unique identifier for the video (used as output folder name)
-        """
-        self.video_path = video_path
-        self.file_id = file_id
-        self.output_folder = file_id
-        
-    def detect_and_extract(self) -> DetectionResult:
-        """
-        Detect scenes and extract representative frames.
         
         Returns:
             DetectionResult containing file_id, output_folder, total_frames, and list of SceneFrame objects
         """
+        output_folder = file_id
+        
         # Detect scene transitions
-        scenes = detect(self.video_path, AdaptiveDetector())
+        scenes = detect(video_path, AdaptiveDetector())
         
         # Create output folder
-        os.makedirs(self.output_folder, exist_ok=True)
+        os.makedirs(output_folder, exist_ok=True)
         
         # Open video for frame extraction
-        video = cv2.VideoCapture(self.video_path)
+        video = cv2.VideoCapture(video_path)
         
         # Get total frames in video
         total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -68,7 +61,7 @@ class PySceneDetect:
             
             # Save frame with frame number as filename
             frame_filename = f"{frame_no}.jpg"
-            frame_path = os.path.join(self.output_folder, frame_filename)
+            frame_path = os.path.join(output_folder, frame_filename)
             frame.save(frame_path)
             
             # Create SceneFrame object
@@ -82,14 +75,14 @@ class PySceneDetect:
         
         # Create result
         result = DetectionResult(
-            file_id=self.file_id,
-            output_folder=self.output_folder,
+            file_id=file_id,
+            output_folder=output_folder,
             total_frames=total_frames,
             selected_frames=scene_frames
         )
         
         # Save JSON mapping
-        self._save_json_mapping(result)
+        self._save_json_mapping(result, output_folder, file_id)
         
         return result
     
@@ -108,28 +101,28 @@ class PySceneDetect:
         _, frame = video.read()
         return Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     
-    def _save_json_mapping(self, result: DetectionResult) -> None:
+    def _save_json_mapping(self, result: DetectionResult, output_folder: str, file_id: str) -> None:
         """
         Save JSON mapping of file_id to extracted scenes.
         
         Args:
             result: DetectionResult object
+            output_folder: Folder to save the JSON file
+            file_id: Unique identifier for the video
         """
-        mapping = {
-            "file_id": result.file_id,
-            "output_folder": result.output_folder,
-            "total_frames": result.total_frames,
-            "total_selected_frames": len(result.selected_frames),
-            "selected_frames": [asdict(frame) for frame in result.selected_frames]
-        }
+        # Use Pydantic's model_dump instead of asdict
+        result_dict = result.model_dump()
+        result_dict["total_selected_frames"] = len(result.selected_frames)
         
-        json_path = os.path.join(self.output_folder, f"{self.file_id}_mapping.json")
+        json_path = os.path.join(output_folder, f"{file_id}_mapping.json")
         with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(mapping, f, indent=2, ensure_ascii=False)
+            json.dump(result_dict, f, indent=2, ensure_ascii=False)
         
         print(f"JSON mapping saved to: {json_path}")
 
 
 if __name__ == "__main__":
-    video_path = r"D:\professional\LABELLERR\Task\Python_SDK\services\video_sampling\video.mp4"
-    result = PySceneDetect(video_path, "video_001").detect_and_extract()
+    video_path = r"D:\professional\LABELLERR\Task\Repos\Python_SDK\services\video_sampling\video2.mp4"
+    
+    detector = PySceneDetect()
+    result = detector.detect_and_extract(video_path, "video_001")
