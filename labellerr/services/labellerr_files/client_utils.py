@@ -6,8 +6,6 @@ import uuid
 import os
 import subprocess
 import requests
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from threading import Lock
 
 
 class FileMetadataService(Singleton):
@@ -97,59 +95,13 @@ class VideoFileService(FileMetadataService):
         except Exception as e:
             raise LabellerrError(f"Failed to fetch video frames data: {str(e)}")
     
-    def _download_single_frame(self, frame_number, frame_url, save_path, print_lock):
+    def download_video_frames(self, frames_data: dict, output_folder: str = None, file_id: str = None):
         """
-        Download a single frame (helper method for threading).
-        
-        :param frame_number: Frame number
-        :param frame_url: URL to download from
-        :param save_path: Directory to save the frame
-        :param print_lock: Lock for thread-safe printing
-        :return: Tuple of (success: bool, frame_number: str, error_info: dict or None)
-        """
-        try:
-            filename = f"{frame_number}.jpg"
-            filepath = os.path.join(save_path, filename)
-            
-            response = requests.get(frame_url, timeout=30)
-            
-            if response.status_code == 200:
-                with open(filepath, 'wb') as f:
-                    f.write(response.content)
-                
-                with print_lock:
-                    print(f"Downloaded: {filename}")
-                
-                return True, frame_number, None
-            else:
-                error_info = {
-                    'frame': frame_number,
-                    'status': response.status_code
-                }
-                with print_lock:
-                    print(f"Failed to download frame {frame_number}: Status {response.status_code}")
-                
-                return False, frame_number, error_info
-                
-        except Exception as e:
-            error_info = {
-                'frame': frame_number,
-                'error': str(e)
-            }
-            with print_lock:
-                print(f"Error downloading frame {frame_number}: {str(e)}")
-            
-            return False, frame_number, error_info
-    
-    def download_video_frames(self, frames_data: dict, output_folder: str, 
-                             file_id: str, max_workers: int = 20):
-        """
-        Download video frames from URLs to a local folder using multithreading.
+        Download video frames from URLs to a local folder.
         
         :param frames_data: Dictionary with frame numbers as keys and URLs as values
         :param output_folder: Base folder path where frames will be saved (default: current directory)
         :param file_id: File ID to use as folder name. If None, uses 'frames' as folder name
-        :param max_workers: Maximum number of concurrent download threads (default: 10)
         :return: Dictionary with download statistics
         """
         try:
@@ -170,33 +122,36 @@ class VideoFileService(FileMetadataService):
             
             success_count = 0
             failed_frames = []
-            print_lock = Lock()
             
-            # print(f"Downloading {len(frames_data)} frames to: {save_path}")
-            # print(f"Using {max_workers} concurrent threads")
+            print(f"Downloading {len(frames_data)} frames to: {save_path}")
             
-            # Use ThreadPoolExecutor for concurrent downloads
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                # Submit all download tasks
-                future_to_frame = {
-                    executor.submit(
-                        self._download_single_frame, 
-                        frame_number, 
-                        frame_url, 
-                        save_path,
-                        print_lock
-                    ): frame_number 
-                    for frame_number, frame_url in frames_data.items()
-                }
-                
-                # Process completed downloads
-                for future in as_completed(future_to_frame):
-                    success, frame_number, error_info = future.result()
+            for frame_number, frame_url in frames_data.items():
+                try:
+                    # Create filename with frame number
+                    filename = f"{frame_number}.jpg"
+                    filepath = os.path.join(save_path, filename)
                     
-                    if success:
+                    # Download the frame
+                    response = requests.get(frame_url, timeout=30)
+                    
+                    if response.status_code == 200:
+                        with open(filepath, 'wb') as f:
+                            f.write(response.content)
                         success_count += 1
+                        print(f"Downloaded: {filename}")
                     else:
-                        failed_frames.append(error_info)
+                        failed_frames.append({
+                            'frame': frame_number,
+                            'status': response.status_code
+                        })
+                        print(f"Failed to download frame {frame_number}: Status {response.status_code}")
+                        
+                except Exception as e:
+                    failed_frames.append({
+                        'frame': frame_number,
+                        'error': str(e)
+                    })
+                    print(f"Error downloading frame {frame_number}: {str(e)}")
             
             result = {
                 'total_frames': len(frames_data),
@@ -251,9 +206,9 @@ class VideoFileService(FileMetadataService):
 # Example usage
 if __name__ == "__main__":
     
-    api_key = "66f4d8.9f402742f58a89568f5bcc0f86"
-    api_secret = "1e2478b930d4a842a526beb585e60d2a9ee6a6f1e3aa89cb3c8ead751f418215"
-    client_id = "14078"
+    api_key = ""
+    api_secret = ""
+    client_id = ""
     dataset_id = "16257fd6-b91b-4d00-a680-9ece9f3f241c"
     project_id = "gabrila_artificial_duck_74237"
     file_id = "c44f38f6-0186-436f-8c2d-ffb50a539c76"
@@ -267,15 +222,12 @@ if __name__ == "__main__":
     # print(video_service.get_file_metadata(client_id, file_id, project_id))
     
     # Get video frames
-    total_frame = video_service.get_file_metadata(client_id, file_id, project_id)['file_metadata']['total_frames']
-    frames = video_service.get_video_frames(client_id, file_id, project_id, dataset_id, frame_end=total_frame)
+    # total_frame = video_service.get_file_metadata(client_id, file_id, project_id)['file_metadata']['total_frames']
+    # frames = video_service.get_video_frames(client_id, file_id, project_id, dataset_id, frame_end=total_frame)
     # print(frames)
     
-    # Download frames with threading (default 10 workers)
-    video_service.download_video_frames(frames, output_folder="./output", file_id=file_id)
-    
-    # Or specify custom number of workers
-    # video_service.download_video_frames(frames, output_folder="./output", file_id=file_id, max_workers=20)
+    # Download frames
+    # video_service.download_video_frames(frames, output_folder="./output", file_id=file_id)
     
     # Create video from frames
     # video_service.create_video_from_frames(frames_folder="./output/frame_folder", output_file="final_video.mp4", framerate=30)
