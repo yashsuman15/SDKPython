@@ -37,12 +37,15 @@ class PySceneDetect(Singleton):
         """
         # Derive file_id from video_path (base name without extension)
         file_id = os.path.splitext(os.path.basename(video_path))[0]
-        output_folder = file_id
+        
+        # Create base detect folder and file_id specific folder
+        base_detect_folder = "detects"
+        output_folder = os.path.join(base_detect_folder, file_id)
         
         # Detect scene transitions
         scenes = detect(video_path, AdaptiveDetector())
         
-        # Create output folder
+        # Create nested output folders
         os.makedirs(output_folder, exist_ok=True)
         
         # Open video for frame extraction
