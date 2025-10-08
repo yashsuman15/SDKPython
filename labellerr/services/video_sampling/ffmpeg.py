@@ -22,17 +22,18 @@ class DetectionResult(BaseModel):
 class FFMPEGSceneDetect(Singleton):
     """Keyframe extraction from videos using FFMPEG (Singleton)."""
     
-    def detect_and_extract(self, video_path: str, file_id: str) -> DetectionResult:
+    def detect_and_extract(self, video_path: str) -> DetectionResult:
         """
-        Extract keyframes from video and save to file_id folder.
+        Extract keyframes from video and save to folder named after video file.
         
         Args:
             video_path: Path to the video file
-            file_id: Unique identifier for the video (used as output folder name)
             
         Returns:
             DetectionResult containing file_id, output_folder, and list of SceneFrame objects
         """
+        # Derive file_id from video_path (base name without extension)
+        file_id = os.path.splitext(os.path.basename(video_path))[0]
         save_folder = file_id
         os.makedirs(save_folder, exist_ok=True)
         
@@ -138,4 +139,4 @@ if __name__ == "__main__":
     
     # Get singleton instance
     detector = FFMPEGSceneDetect()
-    result = detector.detect_and_extract(video_path, "FFMPEG_sample_video_011")
+    result = detector.detect_and_extract(video_path)

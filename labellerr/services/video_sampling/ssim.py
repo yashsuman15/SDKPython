@@ -30,7 +30,6 @@ class SSIMSceneDetect(Singleton):
     def detect_and_extract(
         self, 
         video_path: str, 
-        file_id: str, 
         threshold: float = 0.6, 
         resize_dim: tuple = (320, 240)
     ) -> DetectionResult:
@@ -39,13 +38,14 @@ class SSIMSceneDetect(Singleton):
         
         Args:
             video_path: Path to the video file
-            file_id: Unique identifier for the video (used as output folder name)
             threshold: SSIM threshold for scene detection (lower = stricter, default: 0.6)
             resize_dim: Dimensions to resize frames for SSIM calculation (default: (320, 240))
         
         Returns:
             DetectionResult containing file_id, output_folder, total_frames, and list of SceneFrame objects
         """
+        # Derive file_id from video_path (base name without extension)
+        file_id = os.path.splitext(os.path.basename(video_path))[0]
         output_folder = file_id
         
         # Create output folder
@@ -211,7 +211,6 @@ if __name__ == "__main__":
     # Detect and extract frames
     result = detector.detect_and_extract(
         video_path=video_path,
-        file_id="video_001",
         threshold=0.6,  # Lower value = more sensitive to changes
         resize_dim=(320, 240)
     )

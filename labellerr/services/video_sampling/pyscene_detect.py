@@ -25,17 +25,18 @@ class DetectionResult(BaseModel):
 class PySceneDetect(Singleton):
     """Scene detection and frame extraction for videos (Singleton)."""
     
-    def detect_and_extract(self, video_path: str, file_id: str) -> DetectionResult:
+    def detect_and_extract(self, video_path: str) -> DetectionResult:
         """
         Detect scenes and extract representative frames.
         
         Args:
             video_path: Path to the video file
-            file_id: Unique identifier for the video (used as output folder name)
         
         Returns:
             DetectionResult containing file_id, output_folder, total_frames, and list of SceneFrame objects
         """
+        # Derive file_id from video_path (base name without extension)
+        file_id = os.path.splitext(os.path.basename(video_path))[0]
         output_folder = file_id
         
         # Detect scene transitions
@@ -125,4 +126,4 @@ if __name__ == "__main__":
     video_path = r"D:\professional\LABELLERR\Task\Repos\Python_SDK\services\video_sampling\video2.mp4"
     
     detector = PySceneDetect()
-    result = detector.detect_and_extract(video_path, "video_001")
+    result = detector.detect_and_extract(video_path)
