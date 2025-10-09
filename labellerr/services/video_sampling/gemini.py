@@ -1,14 +1,14 @@
 import os
 import cv2
 from PIL import Image
-from dataclasses import dataclass, asdict
+from pydantic import BaseModel, Field
 from typing import List, Optional
 import json
 from google.cloud import videointelligence
+from labellerr.base.singleton import Singleton
 
 
-@dataclass
-class SceneFrame:
+class SceneFrame(BaseModel):
     """Represents a detected scene with its extracted frame."""
     frame_path: str
     frame_no: int
@@ -16,21 +16,26 @@ class SceneFrame:
     end_time_offset: float
     
 
-@dataclass
-class DetectionResult:
+class DetectionResult(BaseModel):
     """Contains all detection results for a video."""
     file_id: str
     output_folder: str
     total_frames: int
-    selected_frames: List[SceneFrame]
+    selected_frames: List[SceneFrame] = Field(default_factory=list)
     
 
-class GeminiSceneDetect:
+class GeminiSceneDetect(Singleton):
     """Google Cloud Video Intelligence API scene detection and frame extraction."""
     
-    def __init__(self, video_path: str, file_id: str, gcs_uri: Optional[str] = None, credentials_path: Optional[str] = None):
+    def detect_and_extract(
+        self,
+        video_path: str,
+        file_id: str,
+        gcs_uri: Optional[str] = None,
+        credentials_path: Optional[str] = None
+    ) -> DetectionResult:
         """
-        Initialize the Google Cloud Video Intelligence scene detector.
+        Detect scenes using Google Cloud Video Intelligence API and extract representative frames.
         
         Args:
             video_path: Path to the local video file (for frame extraction)
@@ -39,31 +44,24 @@ class GeminiSceneDetect:
                     If None, the video will be uploaded as bytes (limited to 10MB)
             credentials_path: Path to service account JSON key file.
                             If None, uses GOOGLE_APPLICATION_CREDENTIALS environment variable
+        
+        Returns:
+            DetectionResult containing file_id, output_folder, total_frames, and list of SceneFrame objects
         """
-        self.video_path = video_path
-        self.file_id = file_id
-        self.output_folder = file_id
-        self.gcs_uri = gcs_uri
+        output_folder = file_id
         
         # Set credentials if provided
         if credentials_path:
             os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials_path
         
         # Initialize Video Intelligence client
-        self.client = videointelligence.VideoIntelligenceServiceClient()
+        client = videointelligence.VideoIntelligenceServiceClient()
         
-    def detect_and_extract(self) -> DetectionResult:
-        """
-        Detect scenes using Google Cloud Video Intelligence API and extract representative frames.
-        
-        Returns:
-            DetectionResult containing file_id, output_folder, total_frames, and list of SceneFrame objects
-        """
-        print(f"Processing video: {self.video_path}")
+        print(f"Processing video: {video_path}")
         print("Detecting shot changes using Google Cloud Video Intelligence API...")
         
         # Detect shots using Video Intelligence API
-        shots = self._detect_shots()
+        shots = self._detect_shots(client, video_path, gcs_uri)
         
         if not shots:
             raise ValueError("No shot changes detected in the video")
@@ -71,13 +69,13 @@ class GeminiSceneDetect:
         print(f"Detected {len(shots)} shots")
         
         # Create output folder
-        os.makedirs(self.output_folder, exist_ok=True)
+        os.makedirs(output_folder, exist_ok=True)
         
         # Open video for frame extraction
-        video = cv2.VideoCapture(self.video_path)
+        video = cv2.VideoCapture(video_path)
         
         if not video.isOpened():
-            raise ValueError(f"Cannot open video: {self.video_path}")
+            raise ValueError(f"Cannot open video: {video_path}")
         
         # Get video properties
         total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -108,7 +106,7 @@ class GeminiSceneDetect:
             
             # Save frame with frame number as filename
             frame_filename = f"{frame_no}.jpg"
-            frame_path = os.path.join(self.output_folder, frame_filename)
+            frame_path = os.path.join(output_folder, frame_filename)
             frame.save(frame_path)
             
             # Create SceneFrame object
@@ -128,38 +126,48 @@ class GeminiSceneDetect:
         
         # Create result
         result = DetectionResult(
-            file_id=self.file_id,
-            output_folder=self.output_folder,
+            file_id=file_id,
+            output_folder=output_folder,
             total_frames=total_frames,
             selected_frames=scene_frames
         )
         
         # Save JSON mapping
-        self._save_json_mapping(result)
+        self._save_json_mapping(result, output_folder, file_id, gcs_uri)
         
         return result
     
-    def _detect_shots(self) -> List:
+    def _detect_shots(
+        self,
+        client: videointelligence.VideoIntelligenceServiceClient,
+        video_path: str,
+        gcs_uri: Optional[str]
+    ) -> List:
         """
         Detect shot changes using Google Cloud Video Intelligence API.
+        
+        Args:
+            client: Video Intelligence client instance
+            video_path: Path to the local video file
+            gcs_uri: Google Cloud Storage URI
         
         Returns:
             List of shot annotation objects
         """
         features = [videointelligence.Feature.SHOT_CHANGE_DETECTION]
         
-        if self.gcs_uri:
+        if gcs_uri:
             # Use GCS URI for large videos
-            print(f"Analyzing video from GCS: {self.gcs_uri}")
-            operation = self.client.annotate_video(
+            print(f"Analyzing video from GCS: {gcs_uri}")
+            operation = client.annotate_video(
                 request={
-                    "input_uri": self.gcs_uri,
+                    "input_uri": gcs_uri,
                     "features": features
                 }
             )
         else:
             # Read video file and send as bytes (limited to 10MB)
-            with open(self.video_path, "rb") as video_file:
+            with open(video_path, "rb") as video_file:
                 input_content = video_file.read()
             
             print(f"Analyzing video from local file (size: {len(input_content) / (1024*1024):.2f} MB)")
@@ -170,7 +178,7 @@ class GeminiSceneDetect:
                     "and provide gcs_uri parameter (gs://bucket/video.mp4)"
                 )
             
-            operation = self.client.annotate_video(
+            operation = client.annotate_video(
                 request={
                     "input_content": input_content,
                     "features": features
@@ -205,26 +213,30 @@ class GeminiSceneDetect:
         
         return Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     
-    def _save_json_mapping(self, result: DetectionResult) -> None:
+    def _save_json_mapping(
+        self,
+        result: DetectionResult,
+        output_folder: str,
+        file_id: str,
+        gcs_uri: Optional[str]
+    ) -> None:
         """
         Save JSON mapping of file_id to extracted scenes.
         
         Args:
             result: DetectionResult object
+            output_folder: Folder to save the JSON file
+            file_id: Unique identifier for the video
+            gcs_uri: Google Cloud Storage URI (if used)
         """
-        mapping = {
-            "file_id": result.file_id,
-            "output_folder": result.output_folder,
-            "total_frames": result.total_frames,
-            "total_selected_frames": len(result.selected_frames),
-            "detection_method": "Google Cloud Video Intelligence API - Shot Change Detection",
-            "gcs_uri": self.gcs_uri if self.gcs_uri else "local file",
-            "selected_frames": [asdict(frame) for frame in result.selected_frames]
-        }
+        # Use Pydantic's model_dump
+        result_dict = result.model_dump()
+        result_dict["total_selected_frames"] = len(result.selected_frames)
+        result_dict["gcs_uri"] = gcs_uri if gcs_uri else "local file"
         
-        json_path = os.path.join(self.output_folder, f"{self.file_id}_mapping.json")
+        json_path = os.path.join(output_folder, f"{file_id}_mapping.json")
         with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(mapping, f, indent=2, ensure_ascii=False)
+            json.dump(result_dict, f, indent=2, ensure_ascii=False)
         
         print(f"JSON mapping saved to: {json_path}")
 
@@ -234,23 +246,18 @@ if __name__ == "__main__":
     video_path = r"D:\professional\LABELLERR\Task\Repos\SDKPython\labellerr\Python_SDK\services\video_sampling\video2.mp4"
     cred_json_path = r"D:\professional\LABELLERR\Task\Repos\SDKPython\labellerr\Python_SDK\services\video_sampling\yash-suman-prod.json"
     
-    # ----------------------------------------------
-    # Option 1: Process local video file (< 10MB)
-    # ----------------------------------------------
-    
-    detector = GeminiSceneDetect(
-        credentials_path=cred_json_path  # Uses GOOGLE_APPLICATION_CREDENTIALS env var
-    )
-    labellerr_file = LabellerrFile(
-        file_id="video_001"
-    )
-    detector.detect_and_extract()
+    # Get singleton instance
+    detector = GeminiSceneDetect()
     
     # Detect and extract frames
     try:
-        result = detector.detect_and_extract()
-        print(f"\nDetection complete!")
-        print(f"Total frames extracted: {len(result.selected_frames)}")
-        print(f"Output folder: {result.output_folder}")
+        result = detector.detect_and_extract(
+            video_path=video_path,
+            file_id="video_001",
+            gcs_uri=None,  # Set to gs://bucket/video.mp4 for large videos
+            credentials_path=cred_json_path
+        )
+        
+        
     except Exception as e:
         print(f"Error: {e}")

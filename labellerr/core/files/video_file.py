@@ -5,6 +5,7 @@ import uuid
 import os
 import subprocess
 import requests
+import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 from labellerr.core.files.base import LabellerrFile, LabellerrFileMeta
@@ -206,6 +207,107 @@ class LabellerrVideoFile(LabellerrFile):
             return output_file
         except subprocess.CalledProcessError as e:
             raise LabellerrError(f"Error while joining frames: {str(e)}")
+        
+    def download_create_video_auto_cleanup(self, output_folder: str, 
+                                          framerate: int = 30, 
+                                          pattern: str = "%d.jpg",
+                                          max_workers: int = 30,
+                                          frame_start: int = 0,
+                                          frame_end: int | None = None):
+        """
+        Download frames, create video, and automatically clean up temporary frames.
+        This is an all-in-one method for processing video files.
+        
+        :param output_folder: Base folder where video will be saved (organized by dataset_id)
+        :param framerate: Video framerate in fps (default: 30)
+        :param pattern: Frame filename pattern (default: "%d.jpg")
+        :param max_workers: Max concurrent download threads (default: 30)
+        :param frame_start: Starting frame index (default: 0)
+        :param frame_end: Ending frame index (default: total_frames)
+        :return: Dictionary with operation results
+        """
+        try:
+            print(f"\n{'='*60}")
+            print(f"Processing file: {self.file_id}")
+            print(f"{'='*60}")
+            
+            # Step 1: Fetch frame data from API
+            print("\n[1/4] Fetching frame data from API...")
+            frames_response = self.get_frames(frame_start=frame_start, frame_end=frame_end)
+            frames_data = frames_response.get('frames', {})
+            
+            if not frames_data:
+                raise LabellerrError("No frame data retrieved from API")
+            
+            print(f"Retrieved {len(frames_data)} frames")
+            
+            # Step 2: Create dataset folder structure
+            print(f"\n[2/4] Setting up output folders...")
+            dataset_folder = os.path.join(output_folder, self.dataset_id)
+            os.makedirs(dataset_folder, exist_ok=True)
+            
+            temp_frames_folder = os.path.join(dataset_folder, f".temp_{self.file_id}")
+            os.makedirs(temp_frames_folder, exist_ok=True)
+            print(f"Temporary frames folder: {temp_frames_folder}")
+            
+            # Step 3: Download frames to temporary location
+            print(f"\n[3/4] Downloading {len(frames_data)} frames...")
+            download_result = self.download_frames(
+                frames_data=frames_data,
+                output_folder=dataset_folder,
+                max_workers=max_workers
+            )
+            
+            # Update temp folder path in result (since download_frames uses file_id as folder name)
+            actual_frames_folder = os.path.join(dataset_folder, self.file_id)
+            
+            if download_result['failed_downloads'] > 0:
+                print(f"Warning: {download_result['failed_downloads']} frames failed to download")
+            
+            # Step 4: Create video from downloaded frames
+            print(f"\n[4/4] Creating video from frames...")
+            video_output_path = os.path.join(dataset_folder, f"{self.file_id}.mp4")
+            
+            self.create_video(
+                frames_folder=actual_frames_folder,
+                framerate=framerate,
+                pattern=pattern,
+                output_file=video_output_path
+            )
+            
+            # Step 5: Clean up temporary frames folder
+            print(f"\nCleaning up temporary frames...")
+            if os.path.exists(actual_frames_folder):
+                shutil.rmtree(actual_frames_folder)
+                print(f"Removed temporary frames folder: {actual_frames_folder}")
+            
+            result = {
+                'status': 'success',
+                'file_id': self.file_id,
+                'dataset_id': self.dataset_id,
+                'video_path': video_output_path,
+                'output_folder': dataset_folder,
+                'frames_downloaded': download_result['successful_downloads'],
+                'frames_failed': download_result['failed_downloads'],
+                'failed_frames_info': download_result['failed_frames']
+            }
+            
+            print(f"\n{'='*60}")
+            print(f"✓ Processing complete!")
+            print(f"Video saved to: {video_output_path}")
+            print(f"{'='*60}\n")
+            
+            return result
+            
+        except Exception as e:
+            # Attempt cleanup on error
+            try:
+                if actual_frames_folder and os.path.exists(actual_frames_folder):
+                    shutil.rmtree(actual_frames_folder)
+            except:
+                pass
+            
+            raise LabellerrError(f"Failed in video processing: {str(e)}")
         
 
 LabellerrFileMeta.register('video', LabellerrVideoFile)

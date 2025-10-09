@@ -11,7 +11,7 @@ from labellerr.base.singleton import Singleton
 class SceneFrame(BaseModel):
     """Represents a detected scene with its extracted frame."""
     frame_path: str
-    frame_no: int
+    frame_index: int
     
 
 class DetectionResult(BaseModel):
@@ -39,14 +39,15 @@ class PySceneDetect(Singleton):
         file_id = os.path.splitext(os.path.basename(video_path))[0]
         
         # Create base detect folder and file_id specific folder
-        base_detect_folder = "detects"
+        base_detect_folder = "PyScene_detects"
         output_folder = os.path.join(base_detect_folder, file_id)
+        frames_folder = os.path.join(output_folder, "frames")  # New frames subfolder
         
         # Detect scene transitions
         scenes = detect(video_path, AdaptiveDetector())
         
         # Create nested output folders
-        os.makedirs(output_folder, exist_ok=True)
+        os.makedirs(frames_folder, exist_ok=True)  # Create frames subfolder
         
         # Open video for frame extraction
         video = cv2.VideoCapture(video_path)
@@ -63,15 +64,15 @@ class PySceneDetect(Singleton):
             # Extract frame
             frame = self._get_frame(video, frame_no)
             
-            # Save frame with frame number as filename
+            # Save frame with frame number as filename inside frames folder
             frame_filename = f"{frame_no}.jpg"
-            frame_path = os.path.join(output_folder, frame_filename)
+            frame_path = os.path.join(frames_folder, frame_filename)  # Updated path
             frame.save(frame_path)
             
             # Create SceneFrame object
             scene_frame = SceneFrame(
                 frame_path=frame_path,
-                frame_no=frame_no
+                frame_index=frame_no
             )
             scene_frames.append(scene_frame)
         

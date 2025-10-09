@@ -1,0 +1,194 @@
+from labellerr.client import LabellerrClient
+from labellerr.exceptions import LabellerrError
+from labellerr.core.files import LabellerrFile
+from labellerr import constants
+import uuid
+from abc import ABCMeta
+import pprint
+
+class LabellerrVideoDataset:
+    """
+    Class for handling video dataset operations and fetching multiple video files.
+    """
+    
+    def __init__(self, client: LabellerrClient, dataset_id: str, project_id: str):
+        """
+        Initialize video dataset instance.
+        
+        :param client: LabellerrClient instance
+        :param dataset_id: Dataset ID
+        :param project_id: Project ID containing the dataset
+        """
+        self.client = client
+        self.dataset_id = dataset_id
+        self.project_id = project_id
+        self.client_id = client.client_id
+    
+    def fetch_files(self, page_size: int = 1000):
+        """
+        Fetch all video files in this dataset as LabellerrVideoFile instances.
+        
+        :param page_size: Number of files to fetch per API request (default: 10)
+        :return: List of file IDs
+        """
+        try:
+            all_file_ids = []
+            next_search_after = None  # Start with None for first page
+            
+            while True:
+                unique_id = str(uuid.uuid4())
+                url = f"{constants.BASE_URL}/search/files/all"
+                params = {
+                    'sort_by': 'created_at',
+                    'sort_order': 'desc',
+                    'size': page_size,
+                    'uuid': unique_id,
+                    'dataset_id': self.dataset_id,
+                    'client_id': self.client_id
+                }
+                
+                # Add next_search_after only if it exists (don't send on first request)
+                print(next_search_after)
+                if next_search_after:
+                    url+= f"?next_search_after={next_search_after}"
+                
+                # print(params)
+                
+                response = self.client.make_api_request(self.client_id, url, params, unique_id)
+                
+                # pprint.pprint(response)
+                
+                # Extract files from the response
+                files = response.get('response', {}).get('files', [])
+                
+                # Collect file IDs
+                for file_info in files:
+                    file_id = file_info.get('file_id')
+                    if file_id:
+                        all_file_ids.append(file_id)
+                
+                # Get next_search_after for pagination
+                next_search_after = response.get('response', {}).get('next_search_after')
+                
+                
+                # Break if no more pages or no files returned
+                if not next_search_after or not files:
+                    print("No more pages to fetch.")
+                    break
+                
+                print(f"Fetched total: {len(all_file_ids)}")
+            
+            print(f"Total file IDs extracted: {len(all_file_ids)}")
+            # return all_file_ids
+            
+            # Create LabellerrVideoFile instances for each file_id
+            video_files = []
+            print(f"\nCreating LabellerrFile instances for {len(all_file_ids)} files...")
+            
+            for file_id in all_file_ids:
+                try:
+                    video_file = LabellerrFile(
+                        client=self.client,
+                        file_id=file_id,
+                        project_id=self.project_id,
+                        dataset_id=self.dataset_id
+                    )
+                    video_files.append(video_file)
+                except Exception as e:
+                    print(f"Warning: Failed to create file instance for {file_id}: {str(e)}")
+            
+            print(f"Successfully created {len(video_files)} LabellerrFile instances")
+            return video_files
+                
+        except Exception as e:
+            raise LabellerrError(f"Failed to fetch dataset files: {str(e)}")
+        
+    def process_all_videos(self, output_folder: str, framerate: int = 30, 
+                          max_workers: int = 30):
+        """
+        Process all video files in the dataset: download frames, create videos, 
+        and automatically clean up temporary files.
+        
+        :param output_folder: Base folder where dataset folder will be created
+        :param framerate: Video framerate in fps (default: 30)
+        :param max_workers: Max concurrent download threads (default: 30)
+        :return: List of processing results for all files
+        """
+        try:
+            print(f"\n{'#'*70}")
+            print(f"# Starting batch video processing for dataset: {self.dataset_id}")
+            print(f"# Output folder: {output_folder}")
+            print(f"{'#'*70}\n")
+            
+            # Fetch all video files
+            video_files = self.fetch_files()
+            
+            if not video_files:
+                print("No video files found in dataset")
+                return []
+            
+            print(f"\nProcessing {len(video_files)} video files...\n")
+            
+            results = []
+            successful = 0
+            failed = 0
+            
+            for idx, video_file in enumerate(video_files, 1):
+                try:
+                    print(f"[{idx}/{len(video_files)}] Processing {video_file.file_id}...")
+                    
+                    # Call the new all-in-one method
+                    result = video_file.download_create_video_auto_cleanup(
+                        output_folder=output_folder,
+                        framerate=framerate,
+                        max_workers=max_workers
+                    )
+                    
+                    results.append(result)
+                    successful += 1
+                    
+                except Exception as e:
+                    error_result = {
+                        'status': 'failed',
+                        'file_id': video_file.file_id,
+                        'error': str(e)
+                    }
+                    results.append(error_result)
+                    failed += 1
+                    print(f"✗ Error processing {video_file.file_id}: {str(e)}\n")
+            
+            # Summary
+            print(f"\n{'#'*70}")
+            print(f"# Batch Processing Complete")
+            print(f"# Total files: {len(video_files)}")
+            print(f"# Successful: {successful}")
+            print(f"# Failed: {failed}")
+            print(f"{'#'*70}\n")
+            
+            return results
+                
+        except Exception as e:
+            raise LabellerrError(f"Failed to process dataset videos: {str(e)}")
+        
+                
+if __name__ == "__main__":
+    # Example usage (requires valid LabellerrClient instance)
+    api_key = "66f4d8.9f402742f58a89568f5bcc0f86"
+    api_secret = "1e2478b930d4a842a526beb585e60d2a9ee6a6f1e3aa89cb3c8ead751f418215"
+    client_id = "14078"
+    
+    dataset_id = "59438ec3-12e0-4687-8847-1e6e01b0bf25"
+    project_id = "farrah_supposed_hookworm_34155"
+    
+    client = LabellerrClient(api_key, api_secret, client_id)
+    
+    dataset = LabellerrVideoDataset(client, dataset_id, project_id)
+    
+    results = dataset.process_all_videos(
+        output_folder="./videos",
+        framerate=30,
+        max_workers=30
+    )
+
+    pprint.pprint(results)
+    
