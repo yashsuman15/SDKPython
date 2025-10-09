@@ -48,7 +48,6 @@ class LabellerrVideoDataset:
                 }
                 
                 # Add next_search_after only if it exists (don't send on first request)
-                print(next_search_after)
                 if next_search_after:
                     url+= f"?next_search_after={next_search_after}"
                 
@@ -73,7 +72,6 @@ class LabellerrVideoDataset:
                 
                 # Break if no more pages or no files returned
                 if not next_search_after or not files:
-                    print("No more pages to fetch.")
                     break
                 
                 print(f"Fetched total: {len(all_file_ids)}")
@@ -99,19 +97,16 @@ class LabellerrVideoDataset:
             
             print(f"Successfully created {len(video_files)} LabellerrFile instances")
             return video_files
-                
+        
         except Exception as e:
             raise LabellerrError(f"Failed to fetch dataset files: {str(e)}")
-        
-    def process_all_videos(self, output_folder: str, framerate: int = 30, 
-                          max_workers: int = 30):
+    
+    def process_all_videos(self, output_folder: str):
         """
         Process all video files in the dataset: download frames, create videos, 
         and automatically clean up temporary files.
         
         :param output_folder: Base folder where dataset folder will be created
-        :param framerate: Video framerate in fps (default: 30)
-        :param max_workers: Max concurrent download threads (default: 30)
         :return: List of processing results for all files
         """
         try:
@@ -138,11 +133,7 @@ class LabellerrVideoDataset:
                     print(f"[{idx}/{len(video_files)}] Processing {video_file.file_id}...")
                     
                     # Call the new all-in-one method
-                    result = video_file.download_create_video_auto_cleanup(
-                        output_folder=output_folder,
-                        framerate=framerate,
-                        max_workers=max_workers
-                    )
+                    result = video_file.download_create_video_auto_cleanup()
                     
                     results.append(result)
                     successful += 1
@@ -169,10 +160,10 @@ class LabellerrVideoDataset:
                 
         except Exception as e:
             raise LabellerrError(f"Failed to process dataset videos: {str(e)}")
-        
-                
+
+
 if __name__ == "__main__":
-    # Example usage (requires valid LabellerrClient instance)
+    # Example usage
     api_key = "66f4d8.9f402742f58a89568f5bcc0f86"
     api_secret = "1e2478b930d4a842a526beb585e60d2a9ee6a6f1e3aa89cb3c8ead751f418215"
     client_id = "14078"
@@ -184,11 +175,8 @@ if __name__ == "__main__":
     
     dataset = LabellerrVideoDataset(client, dataset_id, project_id)
     
-    results = dataset.process_all_videos(
-        output_folder="./videos",
-        framerate=30,
-        max_workers=30
-    )
-
-    pprint.pprint(results)
+    # Process all videos in the dataset
+    results = dataset.process_all_videos(output_folder="./videos")
     
+    # Print summary
+    pprint.pprint(results)
