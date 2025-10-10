@@ -37,10 +37,12 @@ class PySceneDetect(Singleton):
         """
         # Derive file_id from video_path (base name without extension)
         file_id = os.path.splitext(os.path.basename(video_path))[0]
+        dataset_id = os.path.basename(os.path.dirname(video_path))
         
         # Create base detect folder and file_id specific folder
         base_detect_folder = "PyScene_detects"
-        output_folder = os.path.join(base_detect_folder, file_id)
+        
+        output_folder = os.path.join(base_detect_folder, dataset_id, file_id)
         frames_folder = os.path.join(output_folder, "frames")  # New frames subfolder
         
         # Detect scene transitions
@@ -126,8 +128,8 @@ class PySceneDetect(Singleton):
         print(f"JSON mapping saved to: {json_path}")
 
 
-if __name__ == "__main__":
-    video_path = r"D:\professional\LABELLERR\Task\Repos\Python_SDK\services\video_sampling\video2.mp4"
+# if __name__ == "__main__":
+#     video_path = r"D:\professional\LABELLERR\Task\Repos\SDKPython\labellerr\notebooks\c44f38f6-0186-436f-8c2d-ffb50a539c76.mp4"
     
-    detector = PySceneDetect()
-    result = detector.detect_and_extract(video_path)
+#     detector = PySceneDetect()
+#     result = detector.detect_and_extract(video_path)

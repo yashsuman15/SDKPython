@@ -76,19 +76,12 @@ class LabellerrVideoFile(LabellerrFile):
             if response.status_code == 200:
                 with open(filepath, 'wb') as f:
                     f.write(response.content)
-                
-                with print_lock:
-                    print(f"Downloaded: {filename}")
-                
                 return True, frame_number, None
             else:
                 error_info = {
                     'frame': frame_number,
                     'status': response.status_code
                 }
-                with print_lock:
-                    print(f"Failed to download frame {frame_number}: Status {response.status_code}")
-                
                 return False, frame_number, error_info
                 
         except Exception as e:
@@ -127,9 +120,9 @@ class LabellerrVideoFile(LabellerrFile):
             success_count = 0
             failed_frames = []
             print_lock = Lock()
+            total_frames = len(frames_data)
             
-            print(f"Downloading {len(frames_data)} frames to: {save_path}")
-            print(f"Using {max_workers} concurrent threads")
+            print(f"Starting download of {total_frames} frames...")
             
             # Use ThreadPoolExecutor for concurrent downloads
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -145,18 +138,27 @@ class LabellerrVideoFile(LabellerrFile):
                     for frame_number, frame_url in frames_data.items()
                 }
                 
+                completed = 0
                 # Process completed downloads
                 for future in as_completed(future_to_frame):
                     success, frame_number, error_info = future.result()
+                    completed += 1
                     
                     if success:
                         success_count += 1
                     else:
                         failed_frames.append(error_info)
+                    
+                    # Update progress
+                    with print_lock:
+                        print(f"\rFrames downloaded: {completed}/{total_frames} ({success_count} successful, {len(failed_frames)} failed)", end="", flush=True)
+            
+            # Print newline after progress
+            print()
             
             result = {
                 'file_id': self.file_id,
-                'total_frames': len(frames_data),
+                'total_frames': total_frames,
                 'successful_downloads': success_count,
                 'failed_downloads': len(failed_frames),
                 'save_path': save_path,
@@ -208,7 +210,7 @@ class LabellerrVideoFile(LabellerrFile):
         except subprocess.CalledProcessError as e:
             raise LabellerrError(f"Error while joining frames: {str(e)}")
     
-    def download_create_video_auto_cleanup(self, output_folder: str = "./download_video"):
+    def download_create_video_auto_cleanup(self, output_folder: str = "./Labellerr_datastets"):
         """
         Download frames, create video, and automatically clean up temporary frames.
         This is an all-in-one method for processing video files.
@@ -237,25 +239,24 @@ class LabellerrVideoFile(LabellerrFile):
             
             # Step 2: Create dataset folder structure
             print(f"\n[2/4] Setting up output folders...")
-            dataset_folder = os.path.join(output_folder, self.dataset_id)
+            if self.dataset_id is None:
+                dataset_folder = output_folder
+            else:
+                dataset_folder = os.path.join(output_folder, self.dataset_id)
             os.makedirs(dataset_folder, exist_ok=True)
             
-            temp_frames_folder = os.path.join(dataset_folder, f".temp_{self.file_id}")
-            os.makedirs(temp_frames_folder, exist_ok=True)
-            print(f"Temporary frames folder: {temp_frames_folder}")
+            # Define actual frames folder path
+            actual_frames_folder = os.path.join(dataset_folder, self.file_id)
             
-            # Step 3: Download frames to temporary location
-            print(f"\n[3/4] Downloading {len(frames_data)} frames...")
+            # Step 3: Download frames
+            print(f"\n[3/4] Downloading frames...")
             download_result = self.download_frames(
                 frames_data=frames_data,
                 output_folder=dataset_folder
             )
             
-            # Update temp folder path in result (since download_frames uses file_id as folder name)
-            actual_frames_folder = os.path.join(dataset_folder, self.file_id)
-            
             if download_result['failed_downloads'] > 0:
-                print(f"Warning: {download_result['failed_downloads']} frames failed to download")
+                print(f"\nWarning: {download_result['failed_downloads']} frames failed to download")
             
             # Step 4: Create video from downloaded frames
             print(f"\n[4/4] Creating video from frames...")
@@ -293,8 +294,14 @@ class LabellerrVideoFile(LabellerrFile):
         except Exception as e:
             # Attempt cleanup on error
             try:
-                if actual_frames_folder and os.path.exists(actual_frames_folder):
-                    shutil.rmtree(actual_frames_folder)
+                # Get the frames folder path
+                if self.dataset_id is None:
+                    cleanup_folder = os.path.join(output_folder, self.file_id)
+                else:
+                    cleanup_folder = os.path.join(output_folder, self.dataset_id, self.file_id)
+                
+                if os.path.exists(cleanup_folder):
+                    shutil.rmtree(cleanup_folder)
             except:
                 pass
             

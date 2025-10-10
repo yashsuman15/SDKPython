@@ -101,7 +101,7 @@ class LabellerrVideoDataset:
         except Exception as e:
             raise LabellerrError(f"Failed to fetch dataset files: {str(e)}")
     
-    def process_all_videos(self, output_folder: str):
+    def process_all_videos(self):
         """
         Process all video files in the dataset: download frames, create videos, 
         and automatically clean up temporary files.
@@ -112,7 +112,6 @@ class LabellerrVideoDataset:
         try:
             print(f"\n{'#'*70}")
             print(f"# Starting batch video processing for dataset: {self.dataset_id}")
-            print(f"# Output folder: {output_folder}")
             print(f"{'#'*70}\n")
             
             # Fetch all video files
@@ -128,15 +127,14 @@ class LabellerrVideoDataset:
             successful = 0
             failed = 0
             
+            print(f"\nStarting download of {len(video_files)} files...")
             for idx, video_file in enumerate(video_files, 1):
                 try:
-                    print(f"[{idx}/{len(video_files)}] Processing {video_file.file_id}...")
-                    
                     # Call the new all-in-one method
                     result = video_file.download_create_video_auto_cleanup()
-                    
                     results.append(result)
                     successful += 1
+                    print(f"\rFiles processed: {idx}/{len(video_files)} ({successful} successful, {failed} failed)", end="", flush=True)
                     
                 except Exception as e:
                     error_result = {
@@ -146,7 +144,7 @@ class LabellerrVideoDataset:
                     }
                     results.append(error_result)
                     failed += 1
-                    print(f"✗ Error processing {video_file.file_id}: {str(e)}\n")
+                    print(f"\rFiles processed: {idx}/{len(video_files)} ({successful} successful, {failed} failed)", end="", flush=True)
             
             # Summary
             print(f"\n{'#'*70}")
@@ -162,21 +160,21 @@ class LabellerrVideoDataset:
             raise LabellerrError(f"Failed to process dataset videos: {str(e)}")
 
 
-if __name__ == "__main__":
-    # Example usage
-    api_key = "66f4d8.9f402742f58a89568f5bcc0f86"
-    api_secret = "1e2478b930d4a842a526beb585e60d2a9ee6a6f1e3aa89cb3c8ead751f418215"
-    client_id = "14078"
+# if __name__ == "__main__":
+#     # Example usage
+#     api_key = ""
+#     api_secret = ""
+#     client_id = ""
     
-    dataset_id = "59438ec3-12e0-4687-8847-1e6e01b0bf25"
-    project_id = "farrah_supposed_hookworm_34155"
+#     dataset_id = "59438ec3-12e0-4687-8847-1e6e01b0bf25"
+#     project_id = "farrah_supposed_hookworm_34155"
     
-    client = LabellerrClient(api_key, api_secret, client_id)
+#     client = LabellerrClient(api_key, api_secret, client_id)
     
-    dataset = LabellerrVideoDataset(client, dataset_id, project_id)
+#     dataset = LabellerrVideoDataset(client, dataset_id, project_id)
     
-    # Process all videos in the dataset
-    results = dataset.process_all_videos(output_folder="./videos")
+#     # Process all videos in the dataset
+#     results = dataset.process_all_videos()
     
-    # Print summary
-    pprint.pprint(results)
+#     # Print summary
+#     pprint.pprint(results)

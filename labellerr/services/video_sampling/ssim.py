@@ -46,10 +46,11 @@ class SSIMSceneDetect(Singleton):
         """
         # Derive file_id from video_path (base name without extension)
         file_id = os.path.splitext(os.path.basename(video_path))[0]
+        dataset_id = os.path.basename(os.path.dirname(video_path))
         
         # Create detects folder structure
         base_detect_folder = "SSIM_detects"
-        output_folder = os.path.join(base_detect_folder, file_id)
+        output_folder = os.path.join(base_detect_folder, dataset_id, file_id)
         frames_folder = os.path.join(output_folder, "frames")
         
         # Create nested output folders

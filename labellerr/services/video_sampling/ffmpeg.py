@@ -34,10 +34,12 @@ class FFMPEGSceneDetect(Singleton):
         """
         # Derive file_id from video_path (base name without extension)
         file_id = os.path.splitext(os.path.basename(video_path))[0]
+        dataset_id = os.path.basename(os.path.dirname(video_path))
         
         # Create detects folder structure
         base_detect_folder = "FFMPEG_detects"
-        output_folder = os.path.join(base_detect_folder, file_id)
+        
+        output_folder = os.path.join(base_detect_folder, dataset_id, file_id)
         frames_folder = os.path.join(output_folder, "frames")
         
         # Create nested folders
@@ -142,7 +144,7 @@ class FFMPEGSceneDetect(Singleton):
 
 
 if __name__ == "__main__":
-    video_path = r"D:\professional\LABELLERR\Task\Repos\Python_SDK\services\video_sampling\video2.mp4"
+    video_path = r"D:\professional\LABELLERR\Task\Repos\SDKPython\download_video\59438ec3-12e0-4687-8847-1e6e01b0bf25\1cb2eec4-5125-4272-ad09-c249f40fffb3.mp4"
     
     # Get singleton instance
     detector = FFMPEGSceneDetect()
