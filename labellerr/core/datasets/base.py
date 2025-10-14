@@ -6,7 +6,7 @@ import uuid
 from abc import ABCMeta
 import pprint
 
-class LabellerrVideoDataset:
+class LabellerrDataset:
     """
     Class for handling video dataset operations and fetching multiple video files.
     """
@@ -101,7 +101,7 @@ class LabellerrVideoDataset:
         except Exception as e:
             raise LabellerrError(f"Failed to fetch dataset files: {str(e)}")
     
-    def process_all_videos(self):
+    def download(self):
         """
         Process all video files in the dataset: download frames, create videos, 
         and automatically clean up temporary files.
@@ -174,7 +174,7 @@ class LabellerrVideoDataset:
 #     dataset = LabellerrVideoDataset(client, dataset_id, project_id)
     
 #     # Process all videos in the dataset
-#     results = dataset.process_all_videos()
+#     results = dataset.download()
     
 #     # Print summary
 #     pprint.pprint(results)
