@@ -1,17 +1,14 @@
-from labellerr.client import LabellerrClient
 from labellerr.exceptions import LabellerrError
 from labellerr.core.files import LabellerrFile
 from labellerr import constants
 import uuid
-from abc import ABCMeta
-import pprint
 
 class LabellerrDataset:
     """
     Class for handling video dataset operations and fetching multiple video files.
     """
     
-    def __init__(self, client: LabellerrClient, dataset_id: str, project_id: str):
+    def __init__(self, client, dataset_id: str, project_id: str):
         """
         Initialize video dataset instance.
         

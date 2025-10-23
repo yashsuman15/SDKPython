@@ -1,4 +1,3 @@
-from labellerr.client import LabellerrClient
 from labellerr.exceptions import LabellerrError
 from labellerr import constants
 import uuid
@@ -78,7 +77,7 @@ class LabellerrFileMeta(ABCMeta):
 class LabellerrFile(metaclass=LabellerrFileMeta):
     """Base class for all Labellerr files with factory behavior"""
     
-    def __init__(self, client: LabellerrClient, file_id: str, project_id: str,
+    def __init__(self, client, file_id: str, project_id: str,
                   dataset_id: str | None = None, **kwargs):
         """
         Initialize base file attributes
