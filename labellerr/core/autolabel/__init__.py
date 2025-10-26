@@ -1,2 +1,1 @@
-"""Inference core wrappers go here.
-"""
+"""Inference core wrappers go here."""
