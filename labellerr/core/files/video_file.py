@@ -261,7 +261,7 @@ class LabellerrVideoFile(LabellerrFile):
             print(f"Retrieved {len(frames_data)} frames")
 
             # Step 2: Create dataset folder structure
-            print(f"\n[2/4] Setting up output folders...")
+            print("\n[2/4] Setting up output folders...")
             if self.dataset_id is None:
                 dataset_folder = output_folder
             else:
@@ -272,7 +272,7 @@ class LabellerrVideoFile(LabellerrFile):
             actual_frames_folder = os.path.join(dataset_folder, self.file_id)
 
             # Step 3: Download frames
-            print(f"\n[3/4] Downloading frames...")
+            print("\n[3/4] Downloading frames...")
             download_result = self.download_frames(
                 frames_data=frames_data, output_folder=dataset_folder
             )
@@ -283,7 +283,7 @@ class LabellerrVideoFile(LabellerrFile):
                 )
 
             # Step 4: Create video from downloaded frames
-            print(f"\n[4/4] Creating video from frames...")
+            print("\n[4/4] Creating video from frames...")
             video_output_path = os.path.join(dataset_folder, f"{self.file_id}.mp4")
 
             self.create_video(
@@ -291,7 +291,7 @@ class LabellerrVideoFile(LabellerrFile):
             )
 
             # Step 5: Clean up temporary frames folder
-            print(f"\nCleaning up temporary frames...")
+            print("\nCleaning up temporary frames...")
             if os.path.exists(actual_frames_folder):
                 shutil.rmtree(actual_frames_folder)
                 print(f"Removed temporary frames folder: {actual_frames_folder}")
@@ -308,7 +308,7 @@ class LabellerrVideoFile(LabellerrFile):
             }
 
             print(f"\n{'='*60}")
-            print(f"✓ Processing complete!")
+            print("✓ Processing complete!")
             print(f"Video saved to: {video_output_path}")
             print(f"{'='*60}\n")
 
@@ -327,7 +327,7 @@ class LabellerrVideoFile(LabellerrFile):
 
                 if os.path.exists(cleanup_folder):
                     shutil.rmtree(cleanup_folder)
-            except:
+            except Exception as e:
                 pass
 
             raise LabellerrError(f"Failed in video processing: {str(e)}")

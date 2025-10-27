@@ -229,6 +229,6 @@ if __name__ == "__main__":
         resize_dim=(320, 240),
     )
 
-    print(f"\nDetection complete!")
+    print("\nDetection complete!")
     print(f"Total frames extracted: {len(result.selected_frames)}")
     print(f"Output folder: {result.output_folder}")
