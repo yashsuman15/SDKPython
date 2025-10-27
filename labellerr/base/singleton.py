@@ -18,4 +18,3 @@ class Singleton:
     def __init__(self, *args):
         if type(self) is Singleton:
             raise TypeError("Can't instantiate Singleton class")
-        
