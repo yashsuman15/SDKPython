@@ -328,7 +328,7 @@ class LabellerrVideoFile(LabellerrFile):
                 if os.path.exists(cleanup_folder):
                     shutil.rmtree(cleanup_folder)
             except Exception as e:
-                pass
+                print(f"Error during cleanup: {str(e)}")
 
             raise LabellerrError(f"Failed in video processing: {str(e)}")
 

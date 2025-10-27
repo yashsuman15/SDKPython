@@ -1040,7 +1040,7 @@ class LabellerrClient:
                     extra_headers={"Origin": constants.ALLOWED_ORIGINS},
                 )
                 status_url = f"{self.base_url}/actions/upload_answers_status?project_id={self.project_id}&job_id={self.job_id}&client_id={self.client_id}"
-                
+
                 def check_job_status():
                     response = requests.request(
                         "GET", status_url, headers=headers, data={}
@@ -1066,7 +1066,7 @@ class LabellerrClient:
                     on_success=on_success,
                     on_exception=on_exception
                 )
-                
+
                 return result
 
             except Exception as e:
@@ -1108,15 +1108,15 @@ class LabellerrClient:
                     "GET", url, headers=headers, data=payload
                 )
                 response_data = response.json()
-                
+
                 # Log current status for visibility
                 current_status = response_data.get('response', {}).get('status', 'unknown')
                 logging.info(f"Pre-annotation job status: {current_status}")
-                
+
                 # Check if job failed and raise error immediately
                 if current_status == 'failed':
                     raise LabellerrError('Internal server error: ', response_data)
-                
+
                 return response_data
 
             def is_job_completed(response_data):

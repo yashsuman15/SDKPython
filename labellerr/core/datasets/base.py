@@ -162,7 +162,7 @@ class LabellerrDataset:
 
             # Summary
             print(f"\n{'#'*70}")
-            print(f"# Batch Processing Complete")
+            print("# Batch Processing Complete")
             print(f"# Total files: {len(video_files)}")
             print(f"# Successful: {successful}")
             print(f"# Failed: {failed}")
