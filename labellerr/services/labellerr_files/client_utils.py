@@ -429,8 +429,8 @@ class LabellerrVideoDataset:
 # Example usage
 if __name__ == "__main__":
 
-    api_key = "66f4d8.9f402742f58a89568f5bcc0f86"
-    api_secret = "1e2478b930d4a842a526beb585e60d2a9ee6a6f1e3aa89cb3c8ead751f418215"
+    api_key = ""
+    api_secret = ""
     client_id = "14078"
     dataset_id = "16257fd6-b91b-4d00-a680-9ece9f3f241c"
     project_id = "gabrila_artificial_duck_74237"
