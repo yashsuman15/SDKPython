@@ -1,11 +1,22 @@
-from unittest.mock import Mock, patch
+"""
+Unit tests for KeyFrame functionality and validation.
+
+This module contains unit tests for KeyFrame dataclass,
+validation decorators, and keyframe-related client methods.
+"""
+
+from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
-from labellerr.client import KeyFrame, LabellerrClient, validate_params
-from labellerr.exceptions import LabellerrError
+from labellerr.client import LabellerrClient
+from labellerr.core.exceptions import LabellerrError
+from labellerr.core.schemas import KeyFrame
+from labellerr.core.utils import validate_params
 
 
+@pytest.mark.unit
 class TestKeyFrame:
     """Unit tests for KeyFrame dataclass"""
 
@@ -78,35 +89,36 @@ class TestKeyFrame:
             kwargs["source"] = source
 
         keyframe = KeyFrame(**kwargs)
-        assert keyframe.__dict__ == expected
+        assert keyframe.model_dump() == expected
 
     @pytest.mark.parametrize(
         "invalid_params,expected_error",
         [
             # Invalid frame_number
-            ({"frame_number": "not_an_int"}, "frame_number must be an integer"),
-            ({"frame_number": 1.5}, "frame_number must be an integer"),
-            ({"frame_number": None}, "frame_number must be an integer"),
+            ({"frame_number": "not_an_int"}, "validation error"),
+            ({"frame_number": 1.5}, "validation error"),
+            ({"frame_number": None}, "validation error"),
             # Invalid is_manual
             (
                 {"frame_number": 1, "is_manual": "not_a_bool"},
-                "is_manual must be a boolean",
+                "validation error",
             ),
-            ({"frame_number": 1, "is_manual": 1}, "is_manual must be a boolean"),
+            ({"frame_number": 1, "is_manual": 1}, "validation error"),
             # Invalid method
-            ({"frame_number": 1, "method": 123}, "method must be a string"),
-            ({"frame_number": 1, "method": []}, "method must be a string"),
+            ({"frame_number": 1, "method": 123}, "validation error"),
+            ({"frame_number": 1, "method": []}, "validation error"),
             # Invalid source
-            ({"frame_number": 1, "source": 456}, "source must be a string"),
-            ({"frame_number": 1, "source": {}}, "source must be a string"),
+            ({"frame_number": 1, "source": 456}, "validation error"),
+            ({"frame_number": 1, "source": {}}, "validation error"),
         ],
     )
     def test_keyframe_invalid_creation(self, invalid_params, expected_error):
         """Test KeyFrame creation with invalid parameters"""
-        with pytest.raises(ValueError, match=expected_error):
+        with pytest.raises(ValidationError, match=expected_error):
             KeyFrame(**invalid_params)
 
 
+@pytest.mark.unit
 class TestValidateParamsDecorator:
     """Unit tests for validate_params decorator"""
 
@@ -175,24 +187,39 @@ class TestValidateParamsDecorator:
 @pytest.fixture
 def mock_client():
     """Create a mock client for testing"""
-    client = LabellerrClient("test_api_key", "test_api_secret")
+    client = LabellerrClient("test_api_key", "test_api_secret", "test_client_id")
     client.base_url = "https://api.labellerr.com"
     return client
 
 
-class TestLinkKeyFrameMethod:
-    """Unit tests for link_key_frame method"""
+@pytest.fixture
+def mock_video_project(mock_client):
+    """Create a mock video project instance"""
+    from labellerr.core.projects.video_project import VideoProject
 
-    @patch("labellerr.client.LabellerrClient._make_request")
-    @patch("labellerr.client.LabellerrClient._handle_response")
-    def test_link_key_frame_success(
-        self, mock_handle_response, mock_make_request, mock_client
+    # Create instance bypassing metaclass
+    project = VideoProject.__new__(VideoProject)
+    project.client = mock_client
+    project.project_id = "test_project_id"
+    project.project_data = {
+        "project_id": "test_project_id",
+        "data_type": "video",
+        "attached_datasets": [],
+    }
+    return project
+
+
+@pytest.mark.unit
+class TestAddOrUpdateKeyFramesMethod:
+    """Unit tests for add_or_update_keyframes method on VideoProject"""
+
+    @patch("labellerr.core.client.LabellerrClient.make_request")
+    def test_add_or_update_keyframes_success(
+        self, mock_make_request, mock_video_project
     ):
         """Test successful key frame linking"""
         # Arrange
-        mock_response = Mock()
-        mock_make_request.return_value = mock_response
-        mock_handle_response.return_value = {"status": "success"}
+        mock_make_request.return_value = {"status": "success"}
 
         keyframes = [
             KeyFrame(frame_number=0),
@@ -200,9 +227,7 @@ class TestLinkKeyFrameMethod:
         ]
 
         # Act
-        result = mock_client.link_key_frame(
-            "test_client", "test_project", "test_file", keyframes
-        )
+        result = mock_video_project.add_or_update_keyframes("test_file", keyframes)
 
         # Assert
         assert result == {"status": "success"}
@@ -211,11 +236,11 @@ class TestLinkKeyFrameMethod:
 
         assert args[0] == "POST"
         assert "/actions/add_update_keyframes" in args[1]
-        assert "client_id=test_client" in args[1]
-        assert kwargs["headers"]["content-type"] == "application/json"
+        assert "client_id=test_client_id" in args[1]
+        assert kwargs["extra_headers"]["content-type"] == "application/json"
 
         expected_body = {
-            "project_id": "test_project",
+            "project_id": "test_project_id",
             "file_id": "test_file",
             "keyframes": [
                 {
@@ -235,113 +260,63 @@ class TestLinkKeyFrameMethod:
         assert kwargs["json"] == expected_body
 
     @pytest.mark.parametrize(
-        "client_id,project_id,file_id,keyframes,expected_error",
+        "file_id,keyframes,expected_error",
         [
-            # Invalid client_id
-            (
-                123,
-                "test_project",
-                "test_file",
-                [KeyFrame(frame_number=0)],
-                "client_id must be a str",
-            ),
-            (
-                None,
-                "test_project",
-                "test_file",
-                [KeyFrame(frame_number=0)],
-                "client_id must be a str",
-            ),
-            (
-                [],
-                "test_project",
-                "test_file",
-                [KeyFrame(frame_number=0)],
-                "client_id must be a str",
-            ),
-            # Invalid project_id
-            (
-                "test_client",
-                456,
-                "test_file",
-                [KeyFrame(frame_number=0)],
-                "project_id must be a str",
-            ),
-            (
-                "test_client",
-                None,
-                "test_file",
-                [KeyFrame(frame_number=0)],
-                "project_id must be a str",
-            ),
             # Invalid file_id
             (
-                "test_client",
-                "test_project",
                 789,
                 [KeyFrame(frame_number=0)],
                 "file_id must be a str",
             ),
             (
-                "test_client",
-                "test_project",
                 {},
                 [KeyFrame(frame_number=0)],
                 "file_id must be a str",
             ),
             # Invalid keyframes
             (
-                "test_client",
-                "test_project",
                 "test_file",
                 "not_a_list",
-                "key_frames must be a list",
+                "keyframes must be a list",
             ),
             (
-                "test_client",
-                "test_project",
                 "test_file",
                 123,
-                "key_frames must be a list",
+                "keyframes must be a list",
             ),
             (
-                "test_client",
-                "test_project",
                 "test_file",
                 None,
-                "key_frames must be a list",
+                "keyframes must be a list",
             ),
         ],
     )
-    def test_link_key_frame_invalid_parameters(
-        self, mock_client, client_id, project_id, file_id, keyframes, expected_error
+    def test_add_or_update_keyframes_invalid_parameters(
+        self, mock_video_project, file_id, keyframes, expected_error
     ):
-        """Test link_key_frame with various invalid parameters"""
+        """Test add_or_update_keyframes with various invalid parameters"""
         with pytest.raises(LabellerrError, match=expected_error):
-            mock_client.link_key_frame(client_id, project_id, file_id, keyframes)
+            mock_video_project.add_or_update_keyframes(file_id, keyframes)
 
-    @patch("labellerr.client.LabellerrClient._make_request")
-    def test_link_key_frame_api_error(self, mock_make_request, mock_client):
-        """Test link_key_frame when API call fails"""
+    @patch("labellerr.core.client.LabellerrClient.make_request")
+    def test_add_or_update_keyframes_api_error(
+        self, mock_make_request, mock_video_project
+    ):
+        """Test add_or_update_keyframes when API call fails"""
         mock_make_request.side_effect = Exception("API Error")
         keyframes = [KeyFrame(frame_number=0)]
 
         with pytest.raises(
             LabellerrError, match="Failed to link key frames: API Error"
         ):
-            mock_client.link_key_frame(
-                "test_client", "test_project", "test_file", keyframes
-            )
+            mock_video_project.add_or_update_keyframes("test_file", keyframes)
 
-    @patch("labellerr.client.LabellerrClient._make_request")
-    @patch("labellerr.client.LabellerrClient._handle_response")
-    def test_link_key_frame_with_dict_keyframes(
-        self, mock_handle_response, mock_make_request, mock_client
+    @patch("labellerr.core.client.LabellerrClient.make_request")
+    def test_add_or_update_keyframes_with_dict_keyframes(
+        self, mock_make_request, mock_video_project
     ):
-        """Test link_key_frame with dictionary keyframes instead of KeyFrame objects"""
-        mock_response = Mock()
-        mock_make_request.return_value = mock_response
-        mock_handle_response.return_value = {"status": "success"}
+        """Test add_or_update_keyframes with dictionary keyframes instead of KeyFrame objects"""
+        mock_make_request.return_value = {"status": "success"}
 
         keyframes = [
             {
@@ -352,84 +327,86 @@ class TestLinkKeyFrameMethod:
             }
         ]
 
-        result = mock_client.link_key_frame(
-            "test_client", "test_project", "test_file", keyframes
-        )
+        result = mock_video_project.add_or_update_keyframes("test_file", keyframes)
 
         assert result == {"status": "success"}
         args, kwargs = mock_make_request.call_args
         expected_body = {
-            "project_id": "test_project",
+            "project_id": "test_project_id",
             "file_id": "test_file",
             "keyframes": keyframes,
         }
         assert kwargs["json"] == expected_body
 
 
+@pytest.mark.unit
 class TestDeleteKeyFramesMethod:
-    """Unit tests for delete_key_frames method"""
+    """Unit tests for delete_keyframes method on VideoProject"""
 
-    @patch("labellerr.client.LabellerrClient._make_request")
-    @patch("labellerr.client.LabellerrClient._handle_response")
-    def test_delete_key_frames_success(
-        self, mock_handle_response, mock_make_request, mock_client
-    ):
+    @patch("labellerr.core.client.LabellerrClient.make_request")
+    def test_delete_keyframes_success(self, mock_make_request, mock_video_project):
         """Test successful key frame deletion"""
         # Arrange
-        mock_response = Mock()
-        mock_make_request.return_value = mock_response
-        mock_handle_response.return_value = {"status": "deleted"}
+        mock_make_request.return_value = {"status": "deleted"}
 
         # Act
-        result = mock_client.delete_key_frames("test_client", "test_project")
+        result = mock_video_project.delete_keyframes("test_file", [0, 10, 20])
 
         # Assert
         assert result == {"status": "deleted"}
         mock_make_request.assert_called_once()
-        args, _ = mock_make_request.call_args
+        args, kwargs = mock_make_request.call_args
 
         assert args[0] == "POST"
         assert "/actions/delete_keyframes" in args[1]
-        assert "project_id=test_project" in args[1]
-        assert "client_id=test_client" in args[1]
+        assert "project_id=test_project_id" in args[1]
+        assert "client_id=test_client_id" in args[1]
         assert "uuid=" in args[1]
+        assert kwargs["extra_headers"]["content-type"] == "application/json"
+
+        expected_body = {
+            "project_id": "test_project_id",
+            "file_id": "test_file",
+            "keyframes": [0, 10, 20],
+        }
+        assert kwargs["json"] == expected_body
 
     @pytest.mark.parametrize(
-        "client_id,project_id,expected_error",
+        "file_id,keyframes,expected_error",
         [
-            # Invalid client_id
-            (123, "test_project", "client_id must be a str"),
-            (None, "test_project", "client_id must be a str"),
-            ([], "test_project", "client_id must be a str"),
-            ({}, "test_project", "client_id must be a str"),
-            # Invalid project_id
-            ("test_client", 456, "project_id must be a str"),
-            ("test_client", None, "project_id must be a str"),
-            ("test_client", [], "project_id must be a str"),
-            ("test_client", {}, "project_id must be a str"),
+            # Invalid file_id
+            (456, [0, 10], "file_id must be a str"),
+            ([], [0, 10], "file_id must be a str"),
+            ({}, [0, 10], "file_id must be a str"),
+            # Invalid keyframes
+            ("test_file", "not_a_list", "keyframes must be a list"),
+            ("test_file", 123, "keyframes must be a list"),
+            ("test_file", None, "keyframes must be a list"),
         ],
     )
-    def test_delete_key_frames_invalid_parameters(
-        self, mock_client, client_id, project_id, expected_error
+    def test_delete_keyframes_invalid_parameters(
+        self, mock_video_project, file_id, keyframes, expected_error
     ):
-        """Test delete_key_frames with various invalid parameters"""
+        """Test delete_keyframes with various invalid parameters"""
         with pytest.raises(LabellerrError, match=expected_error):
-            mock_client.delete_key_frames(client_id, project_id)
+            mock_video_project.delete_keyframes(file_id, keyframes)
 
-    @patch("labellerr.client.LabellerrClient._make_request")
-    def test_delete_key_frames_api_error(self, mock_make_request, mock_client):
-        """Test delete_key_frames when API call fails"""
+    @patch("labellerr.core.client.LabellerrClient.make_request")
+    def test_delete_keyframes_api_error(self, mock_make_request, mock_video_project):
+        """Test delete_keyframes when API call fails"""
         mock_make_request.side_effect = Exception("API Error")
 
         with pytest.raises(
             LabellerrError, match="Failed to delete key frames: API Error"
         ):
-            mock_client.delete_key_frames("test_client", "test_project")
+            mock_video_project.delete_keyframes("test_file", [0, 10])
 
-    @patch("labellerr.client.LabellerrClient._make_request")
-    def test_delete_key_frames_labellerr_error(self, mock_make_request, mock_client):
-        """Test delete_key_frames when LabellerrError is raised"""
+    @patch("labellerr.core.client.LabellerrClient.make_request")
+    def test_delete_keyframes_labellerr_error(
+        self, mock_make_request, mock_video_project
+    ):
+        """Test delete_keyframes when LabellerrError is raised"""
         mock_make_request.side_effect = LabellerrError("Custom error")
 
         with pytest.raises(LabellerrError, match="Custom error"):
-            mock_client.delete_key_frames("test_client", "test_project")
+            mock_video_project.delete_keyframes("test_file", [0, 10])

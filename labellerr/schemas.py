@@ -3,6 +3,7 @@ Pydantic models for LabellerrClient method parameter validation.
 """
 
 import os
+from enum import StrEnum
 from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
@@ -196,13 +197,19 @@ class DetachDatasetParams(BaseModel):
     dataset_id: UUID
 
 
+class DataSetScope(StrEnum):
+    project = "project"
+    client = "client"
+    public = "public"
+
+
 class GetAllDatasetParams(BaseModel):
     """Parameters for getting all datasets."""
 
     client_id: str = Field(min_length=1)
     datatype: str = Field(min_length=1)
     project_id: str = Field(min_length=1)
-    scope: Literal["project", "client", "public"]
+    scope: DataSetScope
 
 
 class CreateLocalExportParams(BaseModel):
@@ -328,7 +335,7 @@ class ListFileParams(BaseModel):
     client_id: str = Field(min_length=1)
     project_id: str = Field(min_length=1)
     search_queries: Dict[str, Any]
-    size: int = 10
+    size: int = Field(default=10, gt=0)
     next_search_after: Optional[Any] = None
 
 
@@ -339,3 +346,56 @@ class BulkAssignFilesParams(BaseModel):
     project_id: str = Field(min_length=1)
     file_ids: List[str] = Field(min_length=1)
     new_status: str = Field(min_length=1)
+
+
+class SyncDataSetParams(BaseModel):
+    """Parameters for syncing datasets."""
+
+    client_id: str = Field(min_length=1)
+    project_id: str = Field(min_length=1)
+    dataset_id: str = Field(min_length=1)
+    path: str = Field(min_length=1)
+    data_type: Literal["image", "video", "audio", "document", "text"]
+    email_id: str = Field(min_length=1)
+    connection_id: str = Field(min_length=1)
+
+
+class DatasetConfig(BaseModel):
+    """Configuration for creating a dataset."""
+
+    client_id: str = Field(min_length=1)
+    dataset_name: str = Field(min_length=1)
+    data_type: Literal["image", "video", "audio", "document", "text"]
+    dataset_description: str = ""
+    connector_type: Literal["local", "aws", "gcp"] = "local"
+
+
+class AWSConnectorConfig(BaseModel):
+    """Configuration for AWS S3 connector."""
+
+    aws_access_key: str = Field(min_length=1)
+    aws_secrets_key: str = Field(min_length=1)
+    s3_path: str = Field(min_length=1)
+    data_type: Literal["image", "video", "audio", "document", "text"]
+    name: Optional[str] = None
+    description: str = "Auto-created AWS connector"
+    connection_type: str = "import"
+
+
+class GCPConnectorConfig(BaseModel):
+    """Configuration for GCP connector."""
+
+    gcs_cred_file: str = Field(min_length=1)
+    gcs_path: str = Field(min_length=1)
+    data_type: Literal["image", "video", "audio", "document", "text"]
+    name: Optional[str] = None
+    description: str = "Auto-created GCS connector"
+    connection_type: str = "import"
+    credentials: str = "svc_account_json"
+
+    @field_validator("gcs_cred_file")
+    @classmethod
+    def validate_gcs_cred_file(cls, v):
+        if not os.path.exists(v):
+            raise ValueError(f"GCS credential file not found: {v}")
+        return v
