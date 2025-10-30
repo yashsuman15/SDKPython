@@ -41,7 +41,15 @@ class VideoDataset(LabellerrDataset):
 
                 # print(params)
 
-                response = self.client.make_request(url, params, unique_id)
+                # Fixed: Pass method as first arg, url as second, params as kwarg
+                print(f"url: f{url}")
+                
+                response = self.client.make_request(
+                    method="GET",
+                    url=url,
+                    request_id=unique_id,
+                    params=params
+                )
 
                 # pprint.pprint(response)
 
